@@ -55,6 +55,16 @@ input[type="file"] {
     box-sizing: border-box;
 }
 
+select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #dddddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    background-color: #ffffff;
+    font-size: 14px;
+}
+
 button {
     background-color: #007bff;
     color: #ffffff;

@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.bank_identifier import identify_bank
@@ -12,12 +12,18 @@ router = APIRouter()
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    provider: str = Form(default="offline")
+):
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
             detail="Invalid file type. Only PDF files are accepted."
         )
+
+    if provider not in ("offline", "online"):
+        provider = "offline"
 
     contents = await file.read()
     file_stream = BytesIO(contents)
@@ -27,10 +33,10 @@ async def upload_file(file: UploadFile = File(...)):
     except PDFExtractionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    bank_result = identify_bank(extracted_pdf)
+    bank_result = identify_bank(extracted_pdf, provider=provider)
 
     try:
-        extraction_result = extract_expenses(extracted_pdf)
+        extraction_result = extract_expenses(extracted_pdf, provider=provider)
     except ExtractionError as e:
         raise HTTPException(status_code=500, detail=str(e))
 

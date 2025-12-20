@@ -1,12 +1,10 @@
 import json
-import os
 from pathlib import Path
 from typing import List
 
-from openai import OpenAI
-
 from app.schemas.pdf import ExtractedPDF
 from app.schemas.transaction import ExtractionResult, Transaction
+from app.services.llm_client import LLMClient, LLMError, get_llm_client
 
 
 class ExtractionError(Exception):
@@ -44,38 +42,16 @@ def remove_duplicates(transactions: List[Transaction]) -> List[Transaction]:
     return unique
 
 
-def call_llm(text: str, retry: bool = False) -> ExtractionResult:
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise ExtractionError("OpenAI API key not configured")
-
-    client = OpenAI(api_key=api_key)
-
+def call_llm(text: str, llm_client: LLMClient, retry: bool = False) -> ExtractionResult:
     prompt_template = load_prompt_template()
     prompt = prompt_template.replace("{text}", text)
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a financial data extraction system. Return only valid JSON."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0,
-            response_format={"type": "json_object"}
-        )
-    except Exception as e:
-        raise ExtractionError(f"OpenAI API error: {str(e)}")
+    system_prompt = "You are a financial data extraction system. Return only valid JSON."
 
-    content = response.choices[0].message.content
-    if not content:
-        raise ExtractionError("Empty response from LLM")
+    try:
+        content = llm_client.chat(system_prompt, prompt)
+    except LLMError as e:
+        raise ExtractionError(str(e))
 
     try:
         data = json.loads(content)
@@ -99,14 +75,19 @@ def calculate_average_confidence(transactions: List[Transaction]) -> float:
     return sum(t.confidence for t in transactions) / len(transactions)
 
 
-def extract_expenses(extracted_pdf: ExtractedPDF) -> ExtractionResult:
+def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline") -> ExtractionResult:
     combined_text = combine_pages_text(extracted_pdf)
 
-    result = call_llm(combined_text)
+    try:
+        llm_client = get_llm_client(provider)
+    except LLMError as e:
+        raise ExtractionError(str(e))
+
+    result = call_llm(combined_text, llm_client)
 
     avg_confidence = calculate_average_confidence(result.transactions)
     if avg_confidence < 0.8 and result.transactions:
-        result = call_llm(combined_text, retry=True)
+        result = call_llm(combined_text, llm_client, retry=True)
 
     unique_transactions = remove_duplicates(result.transactions)
 

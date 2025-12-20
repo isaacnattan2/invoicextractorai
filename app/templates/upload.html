@@ -13,6 +13,13 @@
         <p class="info">The extracted transactions will be downloaded as an Excel file.</p>
         <form action="/upload" method="post" enctype="multipart/form-data">
             <div class="form-group">
+                <label for="provider">LLM Provider:</label>
+                <select id="provider" name="provider">
+                    <option value="offline" selected>Offline (Local - Ollama)</option>
+                    <option value="online">Online (OpenAI)</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="file">Select PDF file:</label>
                 <input type="file" id="file" name="file" accept=".pdf,application/pdf" required>
             </div>
