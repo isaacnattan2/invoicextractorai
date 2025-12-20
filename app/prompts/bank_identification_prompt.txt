@@ -1,0 +1,24 @@
+Identify the bank or credit card issuer from the following invoice text.
+
+Analyze the text for:
+- Bank name or logo references
+- Card issuer information
+- Institutional headers
+- Contact information mentioning the bank
+
+Return ONLY a valid JSON object with no additional text:
+
+{
+  "name": "Bank Name",
+  "confidence": 0.95
+}
+
+Rules:
+- Return the official bank name (e.g., "Itau", "Bradesco", "Nubank", "Santander", "Banco do Brasil")
+- Confidence must be between 0.0 and 1.0
+- If the bank cannot be identified, return: {"name": "Unknown", "confidence": 0.0}
+- Do not guess or infer from transaction descriptions
+- Only identify based on explicit bank/issuer information
+
+TEXT (first page):
+{text}

@@ -3,6 +3,7 @@ from io import BytesIO
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
+from app.services.bank_identifier import identify_bank
 from app.services.excel_generator import generate_excel
 from app.services.expense_extractor import ExtractionError, extract_expenses
 from app.services.pdf_extractor import PDFExtractionError, extract_text_from_pdf
@@ -26,10 +27,15 @@ async def upload_file(file: UploadFile = File(...)):
     except PDFExtractionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    bank_result = identify_bank(extracted_pdf)
+
     try:
         extraction_result = extract_expenses(extracted_pdf)
     except ExtractionError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    for transaction in extraction_result.transactions:
+        transaction.bank = bank_result.name
 
     excel_file = generate_excel(extraction_result.transactions)
 

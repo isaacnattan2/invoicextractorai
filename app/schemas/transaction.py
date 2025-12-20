@@ -11,6 +11,7 @@ class Transaction(BaseModel):
     currency: str = "BRL"
     page: int
     confidence: float = Field(ge=0.0, le=1.0)
+    bank: str = "Unknown"
 
     @field_validator("amount", mode="before")
     @classmethod

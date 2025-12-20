@@ -18,11 +18,12 @@ def generate_excel(transactions: List[Transaction]) -> BytesIO:
             "Installment": t.installment or "",
             "Currency": t.currency,
             "Page": t.page,
-            "Confidence": t.confidence
+            "Confidence": t.confidence,
+            "Bank": t.bank
         })
 
     df = pd.DataFrame(data, columns=[
-        "Date", "Description", "Amount", "Installment", "Currency", "Page", "Confidence"
+        "Date", "Description", "Amount", "Installment", "Currency", "Page", "Confidence", "Bank"
     ])
 
     output = BytesIO()
@@ -52,7 +53,8 @@ def generate_excel(transactions: List[Transaction]) -> BytesIO:
             "D": 12,
             "E": 10,
             "F": 8,
-            "G": 12
+            "G": 12,
+            "H": 20
         }
 
         for col_letter, width in column_widths.items():
