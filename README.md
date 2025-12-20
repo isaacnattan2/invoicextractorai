@@ -18,6 +18,7 @@ Python 3.11
    ```bash
    python3 -m venv venv
    source venv/bin/activate
+   windows venv/bin/activate
    ```
 
 3. Install dependencies:
@@ -28,6 +29,9 @@ Python 3.11
 4. Set up environment variables:
    ```bash
    export OPENAI_API_KEY="your-openai-api-key"
+   windows setx OPENAI_API_KEY "your-openai-api-key"
+   setx OPENAI_API_KEY "sua_api_key_aqui"
+   check echo $env:OPENAI_API_KEY
    ```
 
 ## Running the Application
