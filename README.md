@@ -1,6 +1,6 @@
 # Invoice Extractor AI
 
-A FastAPI-based application for extracting data from PDF invoices.
+A FastAPI-based application for extracting credit card transactions from PDF invoices using AI-powered semantic extraction and exporting them to Excel.
 
 ## Python Version
 
@@ -25,6 +25,11 @@ Python 3.11
    pip install -r requirements.txt
    ```
 
+4. Set up environment variables:
+   ```bash
+   export OPENAI_API_KEY="your-openai-api-key"
+   ```
+
 ## Running the Application
 
 Start the development server:
@@ -35,43 +40,57 @@ uvicorn app.main:app --reload
 
 The application will be available at http://localhost:8000
 
+## End-to-End Flow
+
+The application processes PDF invoices through the following pipeline:
+
+1. **PDF Upload**: User uploads a PDF credit card invoice through the web interface
+2. **Text Extraction**: The system extracts text from the PDF using pdfplumber
+3. **AI Processing**: OpenAI's gpt-4o-mini model analyzes the text and extracts individual transactions
+4. **Excel Generation**: Extracted transactions are formatted into an Excel spreadsheet
+5. **Download**: The Excel file is automatically downloaded to the user's device
+
 ## Usage
 
+### Via Web Interface
+
 1. Open your browser and navigate to http://localhost:8000
-2. Select a PDF file using the file input
-3. Click the Upload button to submit the file
+2. Select a PDF credit card invoice using the file input
+3. Click "Extract & Download Excel"
+4. The Excel file with extracted transactions will be downloaded automatically
 
-## Manual Testing
+### Via API (curl)
 
-### Test PDF Upload via curl
-
-Test with a text-based PDF:
-
-```bash
-curl -X POST "http://localhost:8000/upload" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@/path/to/your/invoice.pdf"
-```
-
-Expected successful response:
-
-```json
-{
-  "message": "PDF processed successfully",
-  "filename": "invoice.pdf",
-  "num_pages": 1,
-  "total_characters": 1234
-}
-```
-
-### Test Error Cases
-
-Test with non-PDF file (should return 400):
+Upload a PDF and receive an Excel file:
 
 ```bash
 curl -X POST "http://localhost:8000/upload" \
   -H "Content-Type: multipart/form-data" \
-  -F "file=@/path/to/image.png"
+  -F "file=@/path/to/your/invoice.pdf" \
+  --output transactions.xlsx
 ```
 
-Test with image-based PDF (should return 400 with message about no extractable text)
+## Excel Output Format
+
+The generated Excel file contains a "Transactions" sheet with the following columns:
+
+| Column | Description |
+|--------|-------------|
+| Date | Transaction date (YYYY-MM-DD) |
+| Description | Merchant or purchase description |
+| Amount | Transaction amount in BRL |
+| Installment | Installment info (e.g., "2/6") or empty |
+| Currency | Currency code (BRL) |
+| Page | PDF page where transaction was found |
+| Confidence | AI confidence score (0.0 to 1.0) |
+
+## Error Handling
+
+- **400 Bad Request**: Invalid file type (non-PDF) or PDF with no extractable text
+- **500 Internal Server Error**: OpenAI API errors or processing failures
+
+## Requirements
+
+- Python 3.11
+- OpenAI API key with access to gpt-4o-mini model
+- Text-based PDF invoices (scanned/image PDFs are not supported)

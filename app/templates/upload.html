@@ -9,13 +9,14 @@
 <body>
     <div class="container">
         <h1>Invoice Extractor AI</h1>
-        <p>Upload a PDF invoice to extract data.</p>
+        <p>Upload a PDF invoice to extract credit card transactions.</p>
+        <p class="info">The extracted transactions will be downloaded as an Excel file.</p>
         <form action="/upload" method="post" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="file">Select PDF file:</label>
-                <input type="file" id="file" name="file" accept=".pdf,application/pdf">
+                <input type="file" id="file" name="file" accept=".pdf,application/pdf" required>
             </div>
-            <button type="submit">Upload</button>
+            <button type="submit">Extract & Download Excel</button>
         </form>
     </div>
 </body>

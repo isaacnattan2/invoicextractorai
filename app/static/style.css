@@ -26,7 +26,13 @@ h1 {
 
 p {
     color: #666666;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
+}
+
+p.info {
+    font-size: 14px;
+    color: #888888;
+    margin-bottom: 25px;
 }
 
 .form-group {

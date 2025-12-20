@@ -1,15 +1,16 @@
 from io import BytesIO
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
-from app.schemas.transaction import UploadResponseWithTransactions
+from app.services.excel_generator import generate_excel
 from app.services.expense_extractor import ExtractionError, extract_expenses
 from app.services.pdf_extractor import PDFExtractionError, extract_text_from_pdf
 
 router = APIRouter()
 
 
-@router.post("/upload", response_model=UploadResponseWithTransactions)
+@router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         raise HTTPException(
@@ -30,12 +31,17 @@ async def upload_file(file: UploadFile = File(...)):
     except ExtractionError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    total_characters = sum(len(page.text) for page in extracted_pdf.pages)
+    excel_file = generate_excel(extraction_result.transactions)
 
-    return UploadResponseWithTransactions(
-        message="PDF processed successfully",
-        filename=file.filename,
-        num_pages=len(extracted_pdf.pages),
-        total_characters=total_characters,
-        transactions=extraction_result.transactions
+    filename = "invoice_transactions.xlsx"
+    if file.filename:
+        base_name = file.filename.rsplit(".", 1)[0]
+        filename = f"{base_name}_transactions.xlsx"
+
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
     )
