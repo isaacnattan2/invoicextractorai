@@ -9,7 +9,6 @@ EXCLUDE the following (do NOT extract):
 - Total amounts or subtotals
 - Payment entries or credits
 - Bank fees
-- IOF (tax on financial operations)
 - Interest charges
 - Previous balance or carried amounts
 - Minimum payment amounts
