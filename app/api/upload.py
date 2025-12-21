@@ -1,3 +1,4 @@
+import asyncio
 import os
 import queue
 
@@ -82,7 +83,7 @@ async def sse_events():
         try:
             while True:
                 try:
-                    data = subscriber_queue.get(timeout=30)
+                    data = await asyncio.to_thread(subscriber_queue.get, True, 30)
                     yield {"event": "job_update", "data": data}
                 except queue.Empty:
                     yield {"event": "ping", "data": ""}

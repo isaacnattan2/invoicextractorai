@@ -124,6 +124,12 @@ Progress is tracked in coarse stages:
 
 You can cancel any job that is in WAITING or PROCESSING status by clicking the Cancel button. Cancelled jobs cannot be resumed - you will need to upload the file again.
 
+### Non-Blocking Background Processing
+
+All CPU-bound and I/O-bound operations (PDF extraction, LLM inference, Excel generation) are offloaded from the main event loop using `asyncio.to_thread()`. This ensures the FastAPI server remains responsive at all times, even during heavy processing workloads.
+
+The application remains fully responsive during processing: you can upload new invoices, view job status, cancel jobs, and download completed files while other jobs are being processed. Offline LLM processing with Ollama may take longer than online processing, but the server will never freeze or become unresponsive.
+
 ## Usage
 
 ### Via Web Interface
