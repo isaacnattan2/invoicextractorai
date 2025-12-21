@@ -85,7 +85,8 @@ async def process_job(job_id: str):
             os.makedirs(temp_dir, exist_ok=True)
             
             base_name = job.filename.rsplit(".", 1)[0] if job.filename else "invoice"
-            excel_filename = f"{base_name}_{job_id}_transactions_{job.provider}.xlsx"
+            model_label = job.model_name or job.provider
+            excel_filename = f"{base_name}_{job_id}_transactions_{model_label}.xlsx"
             excel_path = os.path.join(temp_dir, excel_filename)
             
             await asyncio.to_thread(_write_excel_file, excel_file, excel_path)
