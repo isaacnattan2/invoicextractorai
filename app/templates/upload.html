@@ -34,6 +34,7 @@
                     <th>File</th>
                     <th>Uploaded</th>
                     <th>Finished at</th>
+                    <th>Elapsed</th>
                     <th>Provider</th>
                     <th>Status</th>
                     <th>Progress</th>
@@ -46,6 +47,7 @@
                     <td class="filename">{{ job.filename }}</td>
                     <td>{{ job.created_at }}</td>
                     <td>{{ job.finished_at if job.finished_at else "—" }}</td>
+                    <td class="elapsed-cell" data-elapsed-seconds="{{ job.elapsed_seconds }}">{{ job.elapsed_time }}</td>
                     <td>
                         {% if job.provider == "offline" %}
                         <span class="provider-badge offline">Offline</span>
@@ -91,10 +93,26 @@
             progress: {{ job.progress }},
             created_at: "{{ job.created_at }}",
             finished_at: {% if job.finished_at %}"{{ job.finished_at }}"{% else %}null{% endif %},
+            elapsed_time: "{{ job.elapsed_time }}",
+            elapsed_seconds: {{ job.elapsed_seconds }},
             error_message: {% if job.error_message %}"{{ job.error_message }}"{% else %}null{% endif %},
             has_excel: {{ job.has_excel | lower }}
         };
         {% endfor %}
+
+        function formatElapsedTime(seconds) {
+            if (seconds < 60) {
+                return seconds + 's';
+            } else if (seconds < 3600) {
+                var minutes = Math.floor(seconds / 60);
+                var secs = seconds % 60;
+                return minutes + 'm ' + (secs < 10 ? '0' : '') + secs + 's';
+            } else {
+                var hours = Math.floor(seconds / 3600);
+                var mins = Math.floor((seconds % 3600) / 60);
+                return hours + 'h ' + (mins < 10 ? '0' : '') + mins + 'm';
+            }
+        }
 
         function updateJobRow(job) {
             var row = document.querySelector('tr[data-job-id="' + job.id + '"]');
@@ -125,11 +143,13 @@
             }
 
             var finishedAtDisplay = job.finished_at ? job.finished_at : '—';
+            var elapsedDisplay = job.elapsed_time || formatElapsedTime(job.elapsed_seconds || 0);
 
             row.innerHTML = 
                 '<td class="filename">' + job.filename + '</td>' +
                 '<td>' + job.created_at + '</td>' +
                 '<td>' + finishedAtDisplay + '</td>' +
+                '<td class="elapsed-cell" data-elapsed-seconds="' + (job.elapsed_seconds || 0) + '">' + elapsedDisplay + '</td>' +
                 '<td>' + providerBadge + '</td>' +
                 '<td class="status-cell">' + statusHtml + '</td>' +
                 '<td class="progress-cell"><div class="progress-bar"><div class="progress-fill" style="width: ' + job.progress + '%"></div></div><span class="progress-text">' + job.progress + '%</span></td>' +
@@ -148,6 +168,20 @@
         eventSource.onerror = function(e) {
             console.log('SSE connection error, will reconnect automatically');
         };
+
+        setInterval(function() {
+            for (var jobId in jobs) {
+                var job = jobs[jobId];
+                if (job.status === 'WAITING' || job.status === 'PROCESSING') {
+                    job.elapsed_seconds = (job.elapsed_seconds || 0) + 1;
+                    var elapsedCell = document.querySelector('tr[data-job-id="' + jobId + '"] .elapsed-cell');
+                    if (elapsedCell) {
+                        elapsedCell.textContent = formatElapsedTime(job.elapsed_seconds);
+                        elapsedCell.setAttribute('data-elapsed-seconds', job.elapsed_seconds);
+                    }
+                }
+            }
+        }, 1000);
     </script>
 </body>
 </html>

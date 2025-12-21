@@ -16,6 +16,19 @@ class JobStatus(Enum):
     CANCELLED = "CANCELLED"
 
 
+def format_elapsed_time(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        secs = seconds % 60
+        return f"{minutes}m {secs:02d}s"
+    else:
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        return f"{hours}h {minutes:02d}m"
+
+
 @dataclass
 class Job:
     id: str
@@ -30,7 +43,15 @@ class Job:
     pdf_content: Optional[bytes] = None
     cancelled: bool = False
 
+    def get_elapsed_seconds(self) -> int:
+        if self.finished_at:
+            delta = self.finished_at - self.created_at
+        else:
+            delta = datetime.now() - self.created_at
+        return int(delta.total_seconds())
+
     def to_dict(self) -> dict:
+        elapsed_seconds = self.get_elapsed_seconds()
         return {
             "id": self.id,
             "filename": self.filename,
@@ -39,6 +60,8 @@ class Job:
             "progress": self.progress,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "finished_at": self.finished_at.strftime("%Y-%m-%d %H:%M:%S") if self.finished_at else None,
+            "elapsed_time": format_elapsed_time(elapsed_seconds),
+            "elapsed_seconds": elapsed_seconds,
             "error_message": self.error_message,
             "has_excel": self.excel_path is not None
         }
