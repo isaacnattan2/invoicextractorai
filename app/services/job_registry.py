@@ -29,11 +29,22 @@ def format_elapsed_time(seconds: int) -> str:
         return f"{hours}h {minutes:02d}m"
 
 
+def get_model_name_for_provider(provider: str) -> str:
+    if provider == "offline":
+        from app.services.ollama_client import OllamaClient
+        client = OllamaClient()
+        return client.model
+    elif provider == "online":
+        return "gpt-4o-mini"
+    return provider
+
+
 @dataclass
 class Job:
     id: str
     filename: str
     provider: str
+    model_name: Optional[str] = None
     status: JobStatus = JobStatus.WAITING
     progress: int = 0
     created_at: datetime = field(default_factory=datetime.now)
@@ -56,6 +67,7 @@ class Job:
             "id": self.id,
             "filename": self.filename,
             "provider": self.provider,
+            "model_name": self.model_name or self.provider,
             "status": self.status.value,
             "progress": self.progress,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
@@ -110,10 +122,12 @@ class JobRegistry:
 
     def create_job(self, filename: str, provider: str, pdf_content: bytes) -> Job:
         job_id = str(uuid.uuid4())[:8]
+        model_name = get_model_name_for_provider(provider)
         job = Job(
             id=job_id,
             filename=filename,
             provider=provider,
+            model_name=model_name,
             pdf_content=pdf_content
         )
         with self._jobs_lock:

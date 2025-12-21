@@ -50,9 +50,9 @@
                     <td class="elapsed-cell" data-elapsed-seconds="{{ job.elapsed_seconds }}">{{ job.elapsed_time }}</td>
                     <td>
                         {% if job.provider == "offline" %}
-                        <span class="provider-badge offline">Offline</span>
+                        <span class="provider-badge offline">{{ job.model_name }}</span>
                         {% else %}
-                        <span class="provider-badge online">OpenAI</span>
+                        <span class="provider-badge online">{{ job.model_name }}</span>
                         {% endif %}
                     </td>
                     <td class="status-cell">
@@ -89,6 +89,7 @@
             id: "{{ job.id }}",
             filename: "{{ job.filename }}",
             provider: "{{ job.provider }}",
+            model_name: "{{ job.model_name }}",
             status: "{{ job.status }}",
             progress: {{ job.progress }},
             created_at: "{{ job.created_at }}",
@@ -127,8 +128,8 @@
             }
 
             var providerBadge = job.provider === 'offline' 
-                ? '<span class="provider-badge offline">Offline</span>'
-                : '<span class="provider-badge online">OpenAI</span>';
+                ? '<span class="provider-badge offline">' + (job.model_name || 'offline') + '</span>'
+                : '<span class="provider-badge online">' + (job.model_name || 'online') + '</span>';
 
             var statusHtml = '<span class="status-badge status-' + job.status.toLowerCase() + '">' + job.status + '</span>';
             if (job.error_message) {
