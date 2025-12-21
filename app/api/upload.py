@@ -1,12 +1,10 @@
-from io import BytesIO
+import os
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
-from app.services.bank_identifier import identify_bank
-from app.services.excel_generator import generate_excel
-from app.services.expense_extractor import ExtractionError, extract_expenses
-from app.services.pdf_extractor import PDFExtractionError, extract_text_from_pdf
+from app.services.job_registry import get_registry
+from app.services.processor import start_processing
 
 router = APIRouter()
 
@@ -26,34 +24,48 @@ async def upload_file(
         provider = "offline"
 
     contents = await file.read()
-    file_stream = BytesIO(contents)
+    filename = file.filename or "invoice.pdf"
 
-    try:
-        extracted_pdf = extract_text_from_pdf(file_stream)
-    except PDFExtractionError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    registry = get_registry()
+    job = registry.create_job(filename=filename, provider=provider, pdf_content=contents)
 
-    bank_result = identify_bank(extracted_pdf, provider=provider)
+    start_processing(job.id)
 
-    try:
-        extraction_result = extract_expenses(extracted_pdf, provider=provider)
-    except ExtractionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return RedirectResponse(url="/", status_code=303)
 
-    for transaction in extraction_result.transactions:
-        transaction.bank = bank_result.name
 
-    excel_file = generate_excel(extraction_result.transactions)
+@router.get("/jobs")
+async def list_jobs():
+    registry = get_registry()
+    jobs = registry.get_all_jobs()
+    return JSONResponse(content={"jobs": jobs})
 
-    filename = "invoice_transactions.xlsx"
-    if file.filename:
-        base_name = file.filename.rsplit(".", 1)[0]
-        filename = f"{base_name}_transactions.xlsx"
 
-    return StreamingResponse(
-        excel_file,
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    registry = get_registry()
+    success = registry.cancel_job(job_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot cancel this job")
+    return RedirectResponse(url="/", status_code=303)
+
+
+@router.get("/jobs/{job_id}/download")
+async def download_job(job_id: str):
+    registry = get_registry()
+    job = registry.get_job(job_id)
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if not job.excel_path or not os.path.exists(job.excel_path):
+        raise HTTPException(status_code=404, detail="Excel file not available")
+    
+    base_name = job.filename.rsplit(".", 1)[0] if job.filename else "invoice"
+    download_filename = f"{base_name}_transactions.xlsx"
+    
+    return FileResponse(
+        path=job.excel_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
-        }
+        filename=download_filename
     )

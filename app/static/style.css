@@ -78,3 +78,161 @@ button {
 button:hover {
     background-color: #0056b3;
 }
+
+.queue-container {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin: 20px auto;
+    max-width: 900px;
+    width: 95%;
+}
+
+.queue-container h2 {
+    color: #333333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.queue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.queue-table th,
+.queue-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.queue-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    color: #333333;
+}
+
+.queue-table .filename {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.provider-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.provider-badge.offline {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.provider-badge.online {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-waiting {
+    background-color: #fff3e0;
+    color: #e65100;
+}
+
+.status-processing {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.status-completed {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-error {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+.status-cancelled {
+    background-color: #f5f5f5;
+    color: #757575;
+}
+
+.error-message {
+    font-size: 11px;
+    color: #c62828;
+    margin-top: 4px;
+    max-width: 150px;
+    word-wrap: break-word;
+}
+
+.progress-bar {
+    width: 80px;
+    height: 8px;
+    background-color: #eeeeee;
+    border-radius: 4px;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #007bff;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 12px;
+    color: #666666;
+    margin-left: 8px;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+.btn-cancel {
+    background-color: #dc3545;
+    color: #ffffff;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-cancel:hover {
+    background-color: #c82333;
+}
+
+.btn-download {
+    display: inline-block;
+    background-color: #28a745;
+    color: #ffffff;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.btn-download:hover {
+    background-color: #218838;
+}

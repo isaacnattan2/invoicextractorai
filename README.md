@@ -73,10 +73,46 @@ The application processes PDF invoices through the following pipeline:
 
 1. **PDF Upload**: User uploads a PDF credit card invoice through the web interface
 2. **Provider Selection**: User selects Offline (Ollama) or Online (OpenAI) LLM provider
-3. **Text Extraction**: The system extracts text from the PDF using pdfplumber
-4. **AI Processing**: The selected LLM analyzes the text and extracts individual transactions
-5. **Excel Generation**: Extracted transactions are formatted into an Excel spreadsheet
-6. **Download**: The Excel file is automatically downloaded to the user's device
+3. **Queue**: The invoice is added to the processing queue
+4. **Text Extraction**: The system extracts text from the PDF using pdfplumber
+5. **AI Processing**: The selected LLM analyzes the text and extracts individual transactions
+6. **Excel Generation**: Extracted transactions are formatted into an Excel spreadsheet
+7. **Download**: The Excel file becomes available for download from the queue
+
+## Processing Queue
+
+The application includes a processing queue that allows you to upload multiple invoices and track their progress. The queue is displayed below the upload form and automatically refreshes every 5 seconds.
+
+### Job Status
+
+Each uploaded invoice can have one of the following statuses:
+
+| Status | Description |
+|--------|-------------|
+| WAITING | Invoice is queued but processing has not started yet |
+| PROCESSING | PDF text has been extracted and LLM is analyzing the content |
+| COMPLETED | Excel file has been generated and is ready for download |
+| ERROR | Processing failed - error message is displayed |
+| CANCELLED | User manually stopped the processing |
+
+### Progress Stages
+
+Progress is tracked in coarse stages:
+- 0% - Uploaded and queued
+- 20% - PDF text extracted
+- 50% - Waiting for LLM response
+- 80% - Parsing and validating LLM response
+- 100% - Excel file ready
+
+### Offline vs Online Processing
+
+**Offline (Ollama)**: Processing happens locally on your machine. This is slower (especially for the first request) but keeps all data private. Typical processing time: 30-120 seconds depending on document size and hardware.
+
+**Online (OpenAI)**: Processing uses OpenAI's cloud API. This is faster but sends document text to external servers. Typical processing time: 5-15 seconds.
+
+### Cancellation
+
+You can cancel any job that is in WAITING or PROCESSING status by clicking the Cancel button. Cancelled jobs cannot be resumed - you will need to upload the file again.
 
 ## Usage
 
@@ -85,27 +121,36 @@ The application processes PDF invoices through the following pipeline:
 1. Open your browser and navigate to http://localhost:8000
 2. Select the LLM provider (Offline or Online)
 3. Select a PDF credit card invoice using the file input
-4. Click "Extract & Download Excel"
-5. The Excel file with extracted transactions will be downloaded automatically
+4. Click "Upload & Process"
+5. Monitor progress in the Processing Queue table
+6. Click "Download" when the job is completed
 
 ### Via API (curl)
 
-Upload a PDF using offline mode (default):
+Upload a PDF (returns immediately, processes in background):
 
 ```bash
 curl -X POST "http://localhost:8000/upload" \
   -F "file=@/path/to/your/invoice.pdf" \
-  -F "provider=offline" \
-  --output transactions.xlsx
+  -F "provider=offline"
 ```
 
-Upload a PDF using online mode (OpenAI):
+List all jobs:
 
 ```bash
-curl -X POST "http://localhost:8000/upload" \
-  -F "file=@/path/to/your/invoice.pdf" \
-  -F "provider=online" \
-  --output transactions.xlsx
+curl "http://localhost:8000/jobs"
+```
+
+Download completed Excel file:
+
+```bash
+curl "http://localhost:8000/jobs/{job_id}/download" --output transactions.xlsx
+```
+
+Cancel a job:
+
+```bash
+curl -X POST "http://localhost:8000/jobs/{job_id}/cancel"
 ```
 
 ## Excel Output Format
