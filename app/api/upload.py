@@ -1,7 +1,9 @@
 import os
+import queue
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from sse_starlette.sse import EventSourceResponse
 
 from app.services.job_registry import get_registry
 from app.services.processor import start_processing
@@ -69,3 +71,22 @@ async def download_job(job_id: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=download_filename
     )
+
+
+@router.get("/events")
+async def sse_events():
+    registry = get_registry()
+    subscriber_queue = registry.subscribe()
+
+    async def event_generator():
+        try:
+            while True:
+                try:
+                    data = subscriber_queue.get(timeout=30)
+                    yield {"event": "job_update", "data": data}
+                except queue.Empty:
+                    yield {"event": "ping", "data": ""}
+        except GeneratorExit:
+            registry.unsubscribe(subscriber_queue)
+
+    return EventSourceResponse(event_generator())

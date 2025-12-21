@@ -81,7 +81,17 @@ The application processes PDF invoices through the following pipeline:
 
 ## Processing Queue
 
-The application includes a processing queue that allows you to upload multiple invoices and track their progress. The queue is displayed below the upload form and automatically refreshes every 5 seconds.
+The application includes a processing queue that allows you to upload multiple invoices and track their progress. The queue is displayed below the upload form.
+
+### Real-Time Updates (Server-Sent Events)
+
+Job status updates are delivered via Server-Sent Events (SSE), which means the UI updates in real time without polling or page reloads. When you upload a PDF, the job immediately appears in the queue and its status, progress, and actions update automatically as processing progresses.
+
+Key benefits of SSE:
+- No page reloads required - the file input is never cleared by background updates
+- Instant status updates as jobs progress through each stage
+- Multiple uploads can be tracked simultaneously
+- Browser automatically reconnects if the connection drops
 
 ### Job Status
 

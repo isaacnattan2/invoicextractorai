@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice Extractor AI</title>
     <link rel="stylesheet" href="/static/style.css">
-    <meta http-equiv="refresh" content="5">
 </head>
 <body>
     <div class="container">
@@ -27,8 +26,7 @@
         </form>
     </div>
 
-    {% if jobs %}
-    <div class="queue-container">
+    <div class="queue-container" id="queue-container" style="{% if not jobs %}display:none;{% endif %}">
         <h2>Processing Queue</h2>
         <table class="queue-table">
             <thead>
@@ -41,9 +39,9 @@
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="jobs-tbody">
                 {% for job in jobs %}
-                <tr>
+                <tr data-job-id="{{ job.id }}">
                     <td class="filename">{{ job.filename }}</td>
                     <td>{{ job.created_at }}</td>
                     <td>
@@ -53,13 +51,13 @@
                         <span class="provider-badge online">OpenAI</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="status-cell">
                         <span class="status-badge status-{{ job.status | lower }}">{{ job.status }}</span>
                         {% if job.error_message %}
                         <div class="error-message">{{ job.error_message }}</div>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="progress-cell">
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: {{ job.progress }}%"></div>
                         </div>
@@ -79,6 +77,71 @@
             </tbody>
         </table>
     </div>
-    {% endif %}
+
+    <script>
+        var jobs = {};
+        {% for job in jobs %}
+        jobs["{{ job.id }}"] = {
+            id: "{{ job.id }}",
+            filename: "{{ job.filename }}",
+            provider: "{{ job.provider }}",
+            status: "{{ job.status }}",
+            progress: {{ job.progress }},
+            created_at: "{{ job.created_at }}",
+            error_message: {% if job.error_message %}"{{ job.error_message }}"{% else %}null{% endif %},
+            has_excel: {{ job.has_excel | lower }}
+        };
+        {% endfor %}
+
+        function updateJobRow(job) {
+            var row = document.querySelector('tr[data-job-id="' + job.id + '"]');
+            var tbody = document.getElementById('jobs-tbody');
+            var container = document.getElementById('queue-container');
+
+            if (!row) {
+                row = document.createElement('tr');
+                row.setAttribute('data-job-id', job.id);
+                tbody.insertBefore(row, tbody.firstChild);
+                container.style.display = '';
+            }
+
+            var providerBadge = job.provider === 'offline' 
+                ? '<span class="provider-badge offline">Offline</span>'
+                : '<span class="provider-badge online">OpenAI</span>';
+
+            var statusHtml = '<span class="status-badge status-' + job.status.toLowerCase() + '">' + job.status + '</span>';
+            if (job.error_message) {
+                statusHtml += '<div class="error-message">' + job.error_message + '</div>';
+            }
+
+            var actionsHtml = '';
+            if (job.status === 'WAITING' || job.status === 'PROCESSING') {
+                actionsHtml = '<form action="/jobs/' + job.id + '/cancel" method="post" style="display:inline;"><button type="submit" class="btn-cancel">Cancel</button></form>';
+            } else if (job.status === 'COMPLETED' && (job.has_excel || job.download_url)) {
+                actionsHtml = '<a href="/jobs/' + job.id + '/download" class="btn-download">Download</a>';
+            }
+
+            row.innerHTML = 
+                '<td class="filename">' + job.filename + '</td>' +
+                '<td>' + job.created_at + '</td>' +
+                '<td>' + providerBadge + '</td>' +
+                '<td class="status-cell">' + statusHtml + '</td>' +
+                '<td class="progress-cell"><div class="progress-bar"><div class="progress-fill" style="width: ' + job.progress + '%"></div></div><span class="progress-text">' + job.progress + '%</span></td>' +
+                '<td class="actions">' + actionsHtml + '</td>';
+
+            jobs[job.id] = job;
+        }
+
+        var eventSource = new EventSource('/events');
+
+        eventSource.addEventListener('job_update', function(e) {
+            var job = JSON.parse(e.data);
+            updateJobRow(job);
+        });
+
+        eventSource.onerror = function(e) {
+            console.log('SSE connection error, will reconnect automatically');
+        };
+    </script>
 </body>
 </html>

@@ -1,9 +1,11 @@
+import json
+import queue
 import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 class JobStatus(Enum):
@@ -39,6 +41,12 @@ class Job:
             "has_excel": self.excel_path is not None
         }
 
+    def to_sse_dict(self) -> dict:
+        data = self.to_dict()
+        if self.excel_path:
+            data["download_url"] = f"/jobs/{self.id}/download"
+        return data
+
 
 class JobRegistry:
     _instance = None
@@ -51,7 +59,29 @@ class JobRegistry:
                     cls._instance = super().__new__(cls)
                     cls._instance._jobs: Dict[str, Job] = {}
                     cls._instance._jobs_lock = threading.Lock()
+                    cls._instance._subscribers: List[queue.Queue] = []
+                    cls._instance._subscribers_lock = threading.Lock()
         return cls._instance
+
+    def subscribe(self) -> queue.Queue:
+        q = queue.Queue()
+        with self._subscribers_lock:
+            self._subscribers.append(q)
+        return q
+
+    def unsubscribe(self, q: queue.Queue):
+        with self._subscribers_lock:
+            if q in self._subscribers:
+                self._subscribers.remove(q)
+
+    def _emit_event(self, job: Job):
+        event_data = json.dumps(job.to_sse_dict())
+        with self._subscribers_lock:
+            for q in self._subscribers:
+                try:
+                    q.put_nowait(event_data)
+                except queue.Full:
+                    pass
 
     def create_job(self, filename: str, provider: str, pdf_content: bytes) -> Job:
         job_id = str(uuid.uuid4())[:8]
@@ -63,6 +93,7 @@ class JobRegistry:
         )
         with self._jobs_lock:
             self._jobs[job_id] = job
+        self._emit_event(job)
         return job
 
     def get_job(self, job_id: str) -> Optional[Job]:
@@ -79,27 +110,37 @@ class JobRegistry:
             return [job.to_dict() for job in sorted_jobs]
 
     def update_job_status(self, job_id: str, status: JobStatus, progress: int = None):
+        job = None
         with self._jobs_lock:
             job = self._jobs.get(job_id)
             if job:
                 job.status = status
                 if progress is not None:
                     job.progress = progress
+        if job:
+            self._emit_event(job)
 
     def update_job_progress(self, job_id: str, progress: int):
+        job = None
         with self._jobs_lock:
             job = self._jobs.get(job_id)
             if job:
                 job.progress = progress
+        if job:
+            self._emit_event(job)
 
     def set_job_error(self, job_id: str, error_message: str):
+        job = None
         with self._jobs_lock:
             job = self._jobs.get(job_id)
             if job:
                 job.status = JobStatus.ERROR
                 job.error_message = error_message
+        if job:
+            self._emit_event(job)
 
     def set_job_completed(self, job_id: str, excel_path: str):
+        job = None
         with self._jobs_lock:
             job = self._jobs.get(job_id)
             if job:
@@ -107,16 +148,21 @@ class JobRegistry:
                 job.progress = 100
                 job.excel_path = excel_path
                 job.pdf_content = None
+        if job:
+            self._emit_event(job)
 
     def cancel_job(self, job_id: str) -> bool:
+        job = None
         with self._jobs_lock:
             job = self._jobs.get(job_id)
             if job and job.status in (JobStatus.WAITING, JobStatus.PROCESSING):
                 job.cancelled = True
                 job.status = JobStatus.CANCELLED
                 job.pdf_content = None
-                return True
-            return False
+        if job and job.cancelled:
+            self._emit_event(job)
+            return True
+        return False
 
     def is_job_cancelled(self, job_id: str) -> bool:
         with self._jobs_lock:
