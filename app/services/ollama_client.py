@@ -34,7 +34,7 @@ class OllamaClient(LLMClient):
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=1200) as response:
+            with urllib.request.urlopen(req, timeout=3600) as response:
                 result = json.loads(response.read().decode("utf-8"))
         except urllib.error.URLError as e:
             raise LLMError(f"Ollama connection error: {str(e)}. Make sure Ollama is running at {self.base_url}")
