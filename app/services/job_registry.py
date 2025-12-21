@@ -53,6 +53,8 @@ class Job:
     excel_path: Optional[str] = None
     pdf_content: Optional[bytes] = None
     cancelled: bool = False
+    extracted_text: Optional[str] = None
+    llm_prompt: Optional[str] = None
 
     def get_elapsed_seconds(self) -> int:
         if self.finished_at:
@@ -75,7 +77,9 @@ class Job:
             "elapsed_time": format_elapsed_time(elapsed_seconds),
             "elapsed_seconds": elapsed_seconds,
             "error_message": self.error_message,
-            "has_excel": self.excel_path is not None
+            "has_excel": self.excel_path is not None,
+            "extracted_text": self.extracted_text,
+            "llm_prompt": self.llm_prompt
         }
 
     def to_sse_dict(self) -> dict:
@@ -165,6 +169,16 @@ class JobRegistry:
             job = self._jobs.get(job_id)
             if job:
                 job.progress = progress
+        if job:
+            self._emit_event(job)
+
+    def set_job_details(self, job_id: str, extracted_text: str, llm_prompt: str):
+        job = None
+        with self._jobs_lock:
+            job = self._jobs.get(job_id)
+            if job:
+                job.extracted_text = extracted_text
+                job.llm_prompt = llm_prompt
         if job:
             self._emit_event(job)
 

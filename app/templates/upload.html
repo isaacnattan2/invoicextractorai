@@ -31,6 +31,7 @@
         <table class="queue-table">
             <thead>
                 <tr>
+                    <th></th>
                     <th>File</th>
                     <th>Uploaded</th>
                     <th>Finished at</th>
@@ -43,7 +44,10 @@
             </thead>
             <tbody id="jobs-tbody">
                 {% for job in jobs %}
-                <tr data-job-id="{{ job.id }}">
+                <tr data-job-id="{{ job.id }}" class="job-row">
+                    <td class="chevron-cell" onclick="toggleDetails('{{ job.id }}')">
+                        <span class="chevron" id="chevron-{{ job.id }}">&#9654;</span>
+                    </td>
                     <td class="filename">{{ job.filename }}</td>
                     <td>{{ job.created_at }}</td>
                     <td>{{ job.finished_at if job.finished_at else "—" }}</td>
@@ -77,6 +81,20 @@
                         {% endif %}
                     </td>
                 </tr>
+                <tr class="details-row" id="details-{{ job.id }}" style="display: none;">
+                    <td colspan="9">
+                        <div class="details-container">
+                            <div class="details-panel">
+                                <h4>Extracted Text</h4>
+                                <pre class="details-content" id="extracted-text-{{ job.id }}">{{ job.extracted_text if job.extracted_text else "Not available yet" }}</pre>
+                            </div>
+                            <div class="details-panel">
+                                <h4>LLM Prompt</h4>
+                                <pre class="details-content" id="llm-prompt-{{ job.id }}">{{ job.llm_prompt if job.llm_prompt else "Not available yet" }}</pre>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -97,9 +115,30 @@
             elapsed_time: "{{ job.elapsed_time }}",
             elapsed_seconds: {{ job.elapsed_seconds }},
             error_message: {% if job.error_message %}"{{ job.error_message }}"{% else %}null{% endif %},
-            has_excel: {{ job.has_excel | lower }}
+            has_excel: {{ job.has_excel | lower }},
+            extracted_text: {% if job.extracted_text %}{{ job.extracted_text | tojson }}{% else %}null{% endif %},
+            llm_prompt: {% if job.llm_prompt %}{{ job.llm_prompt | tojson }}{% else %}null{% endif %}
         };
         {% endfor %}
+
+        function toggleDetails(jobId) {
+            var detailsRow = document.getElementById('details-' + jobId);
+            var chevron = document.getElementById('chevron-' + jobId);
+            if (detailsRow.style.display === 'none') {
+                detailsRow.style.display = 'table-row';
+                chevron.innerHTML = '&#9660;';
+            } else {
+                detailsRow.style.display = 'none';
+                chevron.innerHTML = '&#9654;';
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
         function formatElapsedTime(seconds) {
             if (seconds < 60) {
@@ -117,12 +156,21 @@
 
         function updateJobRow(job) {
             var row = document.querySelector('tr[data-job-id="' + job.id + '"]');
+            var detailsRow = document.getElementById('details-' + job.id);
             var tbody = document.getElementById('jobs-tbody');
             var container = document.getElementById('queue-container');
 
             if (!row) {
                 row = document.createElement('tr');
                 row.setAttribute('data-job-id', job.id);
+                row.className = 'job-row';
+                
+                detailsRow = document.createElement('tr');
+                detailsRow.id = 'details-' + job.id;
+                detailsRow.className = 'details-row';
+                detailsRow.style.display = 'none';
+                
+                tbody.insertBefore(detailsRow, tbody.firstChild);
                 tbody.insertBefore(row, tbody.firstChild);
                 container.style.display = '';
             }
@@ -147,6 +195,7 @@
             var elapsedDisplay = job.elapsed_time || formatElapsedTime(job.elapsed_seconds || 0);
 
             row.innerHTML = 
+                '<td class="chevron-cell" onclick="toggleDetails(\'' + job.id + '\')"><span class="chevron" id="chevron-' + job.id + '">&#9654;</span></td>' +
                 '<td class="filename">' + job.filename + '</td>' +
                 '<td>' + job.created_at + '</td>' +
                 '<td>' + finishedAtDisplay + '</td>' +
@@ -155,6 +204,16 @@
                 '<td class="status-cell">' + statusHtml + '</td>' +
                 '<td class="progress-cell"><div class="progress-bar"><div class="progress-fill" style="width: ' + job.progress + '%"></div></div><span class="progress-text">' + job.progress + '%</span></td>' +
                 '<td class="actions">' + actionsHtml + '</td>';
+
+            var extractedText = job.extracted_text ? escapeHtml(job.extracted_text) : 'Not available yet';
+            var llmPrompt = job.llm_prompt ? escapeHtml(job.llm_prompt) : 'Not available yet';
+            
+            detailsRow.innerHTML = 
+                '<td colspan="9">' +
+                '<div class="details-container">' +
+                '<div class="details-panel"><h4>Extracted Text</h4><pre class="details-content" id="extracted-text-' + job.id + '">' + extractedText + '</pre></div>' +
+                '<div class="details-panel"><h4>LLM Prompt</h4><pre class="details-content" id="llm-prompt-' + job.id + '">' + llmPrompt + '</pre></div>' +
+                '</div></td>';
 
             jobs[job.id] = job;
         }

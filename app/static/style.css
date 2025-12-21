@@ -237,3 +237,63 @@ button:hover {
 .btn-download:hover {
     background-color: #218838;
 }
+
+.chevron-cell {
+    cursor: pointer;
+    width: 30px;
+    text-align: center;
+    user-select: none;
+}
+
+.chevron {
+    font-size: 12px;
+    color: #666666;
+    transition: transform 0.2s ease;
+}
+
+.chevron-cell:hover .chevron {
+    color: #007bff;
+}
+
+.details-row {
+    background-color: #f8f9fa;
+}
+
+.details-row td {
+    padding: 0 !important;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.details-container {
+    display: flex;
+    gap: 20px;
+    padding: 15px;
+}
+
+.details-panel {
+    flex: 1;
+    min-width: 0;
+}
+
+.details-panel h4 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: #333333;
+    font-weight: bold;
+}
+
+.details-content {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 12px;
+    margin: 0;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    color: #333333;
+}

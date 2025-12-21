@@ -5,7 +5,7 @@ from io import BytesIO
 
 from app.services.bank_identifier import identify_bank
 from app.services.excel_generator import generate_excel
-from app.services.expense_extractor import ExtractionError, extract_expenses
+from app.services.expense_extractor import ExtractionError, extract_expenses, combine_pages_text, build_llm_prompt
 from app.services.job_registry import JobStatus, get_registry
 from app.services.pdf_extractor import PDFExtractionError, extract_text_from_pdf
 
@@ -46,6 +46,10 @@ async def process_job(job_id: str):
             return
 
         registry.update_job_progress(job_id, 20)
+
+        combined_text = combine_pages_text(extracted_pdf)
+        llm_prompt = build_llm_prompt(combined_text)
+        registry.set_job_details(job_id, combined_text, llm_prompt)
 
         if registry.is_job_cancelled(job_id):
             return

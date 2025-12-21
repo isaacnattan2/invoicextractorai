@@ -42,9 +42,13 @@ def remove_duplicates(transactions: List[Transaction]) -> List[Transaction]:
     return unique
 
 
-def call_llm(text: str, llm_client: LLMClient, retry: bool = False) -> ExtractionResult:
+def build_llm_prompt(text: str) -> str:
     prompt_template = load_prompt_template()
-    prompt = prompt_template.replace("{text}", text)
+    return prompt_template.replace("{text}", text)
+
+
+def call_llm(text: str, llm_client: LLMClient, retry: bool = False) -> ExtractionResult:
+    prompt = build_llm_prompt(text)
 
     system_prompt = "You are a financial data extraction system. Return only valid JSON."
 
