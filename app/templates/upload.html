@@ -48,7 +48,7 @@
                     <td class="chevron-cell" onclick="toggleDetails('{{ job.id }}')">
                         <span class="chevron" id="chevron-{{ job.id }}">&#9654;</span>
                     </td>
-                    <td class="filename">{{ job.filename }}</td>
+                    <td class="filename" title="{{ job.filename }}">{{ job.filename }}</td>
                     <td>{{ job.created_at }}</td>
                     <td>{{ job.finished_at if job.finished_at else "—" }}</td>
                     <td class="elapsed-cell" data-elapsed-seconds="{{ job.elapsed_seconds }}">{{ job.elapsed_time }}</td>
