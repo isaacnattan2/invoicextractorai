@@ -24,6 +24,7 @@ class Job:
     status: JobStatus = JobStatus.WAITING
     progress: int = 0
     created_at: datetime = field(default_factory=datetime.now)
+    finished_at: Optional[datetime] = None
     error_message: Optional[str] = None
     excel_path: Optional[str] = None
     pdf_content: Optional[bytes] = None
@@ -37,6 +38,7 @@ class Job:
             "status": self.status.value,
             "progress": self.progress,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "finished_at": self.finished_at.strftime("%Y-%m-%d %H:%M:%S") if self.finished_at else None,
             "error_message": self.error_message,
             "has_excel": self.excel_path is not None
         }
@@ -136,6 +138,7 @@ class JobRegistry:
             if job:
                 job.status = JobStatus.ERROR
                 job.error_message = error_message
+                job.finished_at = datetime.now()
         if job:
             self._emit_event(job)
 
@@ -148,6 +151,7 @@ class JobRegistry:
                 job.progress = 100
                 job.excel_path = excel_path
                 job.pdf_content = None
+                job.finished_at = datetime.now()
         if job:
             self._emit_event(job)
 

@@ -33,6 +33,7 @@
                 <tr>
                     <th>File</th>
                     <th>Uploaded</th>
+                    <th>Finished at</th>
                     <th>Provider</th>
                     <th>Status</th>
                     <th>Progress</th>
@@ -44,6 +45,7 @@
                 <tr data-job-id="{{ job.id }}">
                     <td class="filename">{{ job.filename }}</td>
                     <td>{{ job.created_at }}</td>
+                    <td>{{ job.finished_at if job.finished_at else "—" }}</td>
                     <td>
                         {% if job.provider == "offline" %}
                         <span class="provider-badge offline">Offline</span>
@@ -88,6 +90,7 @@
             status: "{{ job.status }}",
             progress: {{ job.progress }},
             created_at: "{{ job.created_at }}",
+            finished_at: {% if job.finished_at %}"{{ job.finished_at }}"{% else %}null{% endif %},
             error_message: {% if job.error_message %}"{{ job.error_message }}"{% else %}null{% endif %},
             has_excel: {{ job.has_excel | lower }}
         };
@@ -121,9 +124,12 @@
                 actionsHtml = '<a href="/jobs/' + job.id + '/download" class="btn-download">Download</a>';
             }
 
+            var finishedAtDisplay = job.finished_at ? job.finished_at : '—';
+
             row.innerHTML = 
                 '<td class="filename">' + job.filename + '</td>' +
                 '<td>' + job.created_at + '</td>' +
+                '<td>' + finishedAtDisplay + '</td>' +
                 '<td>' + providerBadge + '</td>' +
                 '<td class="status-cell">' + statusHtml + '</td>' +
                 '<td class="progress-cell"><div class="progress-bar"><div class="progress-fill" style="width: ' + job.progress + '%"></div></div><span class="progress-text">' + job.progress + '%</span></td>' +
