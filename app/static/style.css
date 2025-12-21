@@ -294,6 +294,7 @@ button:hover {
     white-space: pre-wrap;
     word-wrap: break-word;
     max-height: 300px;
+    max-width: 400px;
     overflow-y: auto;
     color: #333333;
 }
