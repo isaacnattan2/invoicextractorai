@@ -9,6 +9,8 @@ from sse_starlette.sse import EventSourceResponse
 from app.services.job_registry import get_registry
 from app.services.processor import start_processing
 
+import re
+
 router = APIRouter()
 
 
@@ -65,7 +67,11 @@ async def download_job(job_id: str):
         raise HTTPException(status_code=404, detail="Excel file not available")
     
     base_name = job.filename.rsplit(".", 1)[0] if job.filename else "invoice"
-    download_filename = f"{base_name}_transactions.xlsx"
+
+    model_label = job.model_name or job.provider
+    excel_filename = f"{base_name}_transactions_{model_label}"
+    sanitized_filename = sanitize_filename_part(excel_filename)
+    download_filename = f"{sanitized_filename}.xlsx"
     
     return FileResponse(
         path=job.excel_path,
@@ -73,6 +79,21 @@ async def download_job(job_id: str):
         filename=download_filename
     )
 
+def sanitize_filename_part(value: str) -> str:
+    """
+    Makes a string safe to be used as part of a filename.
+    Replaces characters that are invalid on Windows/Linux.
+    """
+    if not value:
+        return "unknown_model"
+
+    # Replace . and : explicitly
+    value = value.replace(".", "_").replace(":", "_")
+
+    # Optional: remove any remaining unsafe characters
+    value = re.sub(r"[^a-zA-Z0-9_\-]", "_", value)
+
+    return value
 
 @router.get("/events")
 async def sse_events():
