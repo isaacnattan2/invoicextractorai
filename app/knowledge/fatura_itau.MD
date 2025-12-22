@@ -24,9 +24,6 @@ Uma transação válida **SEMPRE** possui:
 Exemplo válido:
 28/11 IFD*60463747CAMILLYLA 53,98
 
-yaml
-Copiar código
-
 ---
 
 ## 2. O QUE NÃO DEVE SER EXTRAÍDO (REGRA CRÍTICA)
@@ -42,9 +39,6 @@ Copiar código
 
 Exemplo inválido:
 07/11 PAGAMENTOPIX -150,19
-
-yaml
-Copiar código
 
 ---
 
@@ -82,19 +76,12 @@ Apenas o conteúdo **ENTRE** os marcadores abaixo pode conter transações:
 ### Início válido
 Lançamentos: compras e saques
 
-shell
-Copiar código
 
 ### Fim válido
 Lançamentos no cartão
 
-nginx
-Copiar código
 ou
 Total dos lançamentos atuais
-
-yaml
-Copiar código
 
 👉 Qualquer texto fora desse intervalo **não contém despesas**.
 
@@ -105,17 +92,11 @@ Copiar código
 Formato típico:
 DD/MM NOME_DO_ESTABELECIMENTO VALOR
 
-java
-Copiar código
-
 Pode haver texto adicional abaixo (cidade / categoria), que deve ser ignorado.
 
 Exemplo:
 26/11 IFD*VSSERVICOSDEALIA 122,88
 restaurante city
-
-yaml
-Copiar código
 
 ✅ Apenas a primeira linha representa a transação.
 
@@ -143,8 +124,7 @@ Considere duas transações duplicadas se tiverem:
   "currency": "BRL"
 }
 7. EXEMPLOS NEGATIVOS (NÃO EXTRAIR)
-text
-Copiar código
+
 Novo teto de juros do cartão de crédito
 Limite máximo de juros 0,00
 P Total dos pagamentos -150,19
