@@ -6,8 +6,8 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sse_starlette.sse import EventSourceResponse
 
-from app.services.job_registry import get_registry
-from app.services.processor import start_processing
+from app.services.job_registry import JobStatus, get_registry
+from app.services.processor import start_processing, start_processing_with_password
 
 import re
 
@@ -53,6 +53,22 @@ async def cancel_job(job_id: str):
     if not success:
         raise HTTPException(status_code=400, detail="Cannot cancel this job")
     return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/jobs/{job_id}/password")
+async def submit_password(job_id: str, password: str = Form(...)):
+    registry = get_registry()
+    job = registry.get_job(job_id)
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if job.status != JobStatus.PASSWORD_REQUIRED:
+        raise HTTPException(status_code=400, detail="Job is not waiting for password")
+    
+    start_processing_with_password(job_id, password)
+    
+    return JSONResponse(content={"status": "processing", "job_id": job_id})
 
 
 @router.get("/jobs/{job_id}/download")

@@ -14,6 +14,7 @@ class JobStatus(Enum):
     COMPLETED = "COMPLETED"
     ERROR = "ERROR"
     CANCELLED = "CANCELLED"
+    PASSWORD_REQUIRED = "PASSWORD_REQUIRED"
 
 
 def format_elapsed_time(seconds: int) -> str:
@@ -179,6 +180,27 @@ class JobRegistry:
             if job:
                 job.extracted_text = extracted_text
                 job.llm_prompt = llm_prompt
+        if job:
+            self._emit_event(job)
+
+    def set_job_password_required(self, job_id: str, error_message: str = "This PDF is password-protected. Please provide the password."):
+        job = None
+        with self._jobs_lock:
+            job = self._jobs.get(job_id)
+            if job:
+                job.status = JobStatus.PASSWORD_REQUIRED
+                job.error_message = error_message
+        if job:
+            self._emit_event(job)
+
+    def reset_job_for_retry(self, job_id: str):
+        job = None
+        with self._jobs_lock:
+            job = self._jobs.get(job_id)
+            if job and job.status == JobStatus.PASSWORD_REQUIRED:
+                job.status = JobStatus.PROCESSING
+                job.error_message = None
+                job.progress = 0
         if job:
             self._emit_event(job)
 
