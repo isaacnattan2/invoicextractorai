@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from app.schemas.pdf import ExtractedPDF
 from app.schemas.transaction import ExtractionResult, Transaction
 from app.services.llm_client import LLMClient, LLMError, get_llm_client
+from app.services.rag_loader import load_knowledge_for_issuer
 
 
 class ExtractionError(Exception):
@@ -42,13 +43,14 @@ def remove_duplicates(transactions: List[Transaction]) -> List[Transaction]:
     return unique
 
 
-def build_llm_prompt(text: str) -> str:
+def build_llm_prompt(text: str, knowledge: str = "") -> str:
     prompt_template = load_prompt_template()
-    return prompt_template.replace("{text}", text)
+    prompt = prompt_template.replace("${knowledge}", knowledge)
+    return prompt.replace("{text}", text)
 
 
-def call_llm(text: str, llm_client: LLMClient, retry: bool = False) -> ExtractionResult:
-    prompt = build_llm_prompt(text)
+def call_llm(text: str, llm_client: LLMClient, knowledge: str = "", retry: bool = False) -> ExtractionResult:
+    prompt = build_llm_prompt(text, knowledge)
 
     system_prompt = "You are a financial data extraction system. Return only valid JSON."
 
@@ -79,7 +81,7 @@ def calculate_average_confidence(transactions: List[Transaction]) -> float:
     return sum(t.confidence for t in transactions) / len(transactions)
 
 
-def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline") -> ExtractionResult:
+def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline", issuer: str = "") -> ExtractionResult:
     combined_text = combine_pages_text(extracted_pdf)
 
     try:
@@ -87,11 +89,13 @@ def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline") -> 
     except LLMError as e:
         raise ExtractionError(str(e))
 
-    result = call_llm(combined_text, llm_client)
+    knowledge = load_knowledge_for_issuer(issuer)
+
+    result = call_llm(combined_text, llm_client, knowledge)
 
     avg_confidence = calculate_average_confidence(result.transactions)
     if avg_confidence < 0.8 and result.transactions:
-        result = call_llm(combined_text, llm_client, retry=True)
+        result = call_llm(combined_text, llm_client, knowledge, retry=True)
 
     unique_transactions = remove_duplicates(result.transactions)
 
