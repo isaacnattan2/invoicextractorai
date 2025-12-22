@@ -1,8 +1,11 @@
 import json
+import logging
 from pathlib import Path
 
 from app.schemas.pdf import ExtractedPDF
 from app.services.llm_client import LLMError, get_llm_client
+
+logger = logging.getLogger(__name__)
 
 
 class BankIdentificationResult:
@@ -28,6 +31,7 @@ def identify_bank(extracted_pdf: ExtractedPDF, provider: str = "offline") -> Ban
     try:
         llm_client = get_llm_client(provider)
     except LLMError:
+        logger.exception("Failed to initialize LLM client for bank identification, provider: %s", provider)
         return BankIdentificationResult(name="Unknown", confidence=0.0)
 
     prompt_template = load_bank_prompt_template()
@@ -38,6 +42,7 @@ def identify_bank(extracted_pdf: ExtractedPDF, provider: str = "offline") -> Ban
     try:
         content = llm_client.chat(system_prompt, prompt)
     except LLMError:
+        logger.exception("LLM chat request failed during bank identification")
         return BankIdentificationResult(name="Unknown", confidence=0.0)
 
     try:
@@ -48,4 +53,5 @@ def identify_bank(extracted_pdf: ExtractedPDF, provider: str = "offline") -> Ban
             name = "Unknown"
         return BankIdentificationResult(name=name, confidence=confidence)
     except (json.JSONDecodeError, ValueError):
+        logger.exception("Failed to parse bank identification response as JSON")
         return BankIdentificationResult(name="Unknown", confidence=0.0)

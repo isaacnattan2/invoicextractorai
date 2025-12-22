@@ -1,8 +1,11 @@
+import logging
 import os
 
 from openai import OpenAI
 
 from app.services.llm_client import LLMClient, LLMError
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIClient(LLMClient):
@@ -24,7 +27,8 @@ class OpenAIClient(LLMClient):
                 response_format={"type": "json_object"}
             )
         except Exception as e:
-            raise LLMError(f"OpenAI API error: {str(e)}")
+            logger.exception("OpenAI API request failed")
+            raise LLMError(f"OpenAI API error: {str(e)}") from e
 
         content = response.choices[0].message.content
         if not content:
