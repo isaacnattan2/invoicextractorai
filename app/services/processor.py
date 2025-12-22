@@ -12,6 +12,15 @@ from app.services.job_registry import JobStatus, get_registry
 from app.services.pdf_extractor import PDFExtractionError, PDFPasswordRequired, PDFPasswordIncorrect, extract_text_from_pdf
 from app.services.rag_loader import load_knowledge_for_issuer
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+
 
 def _extract_pdf_text(pdf_content: bytes, password: Optional[str] = None):
     file_stream = BytesIO(pdf_content)
@@ -51,6 +60,8 @@ async def process_job(job_id: str):
         except PDFExtractionError as e:
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"PDF extraction failed: {str(e)}")
+                logger.exception("PDF extraction failed")
+                raise
             return
 
         if registry.is_job_cancelled(job_id):
