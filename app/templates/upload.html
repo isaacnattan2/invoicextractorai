@@ -95,6 +95,8 @@
                         <form action="/jobs/{{ job.id }}/cancel" method="post" style="display:inline;">
                             <button type="submit" class="btn-cancel">Cancel</button>
                         </form>
+                        {% elif job.status == "PASSWORD_REQUIRED" %}
+                        <button type="button" class="btn-password" onclick="showPasswordModal('{{ job.id }}', '{{ job.error_message | default('') | e }}')">Enter Password</button>
                         {% elif job.status == "COMPLETED" and job.has_excel %}
                         <a href="/jobs/{{ job.id }}/download" class="btn-download">Download</a>
                         {% endif %}
