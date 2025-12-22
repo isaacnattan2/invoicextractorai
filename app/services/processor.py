@@ -50,19 +50,18 @@ async def process_job(job_id: str):
         try:
             extracted_pdf = await asyncio.to_thread(_extract_pdf_text, job.pdf_content)
         except PDFPasswordRequired as e:
-            logger.info("PDF requires password for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_password_required(job_id, str(e))
             return
         except PDFPasswordIncorrect as e:
-            logger.info("PDF password incorrect for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_password_required(job_id, str(e))
             return
         except PDFExtractionError as e:
-            logger.exception("PDF extraction failed for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"PDF extraction failed: {str(e)}")
+                logger.exception("PDF extraction failed")
+                raise
             return
 
         if registry.is_job_cancelled(job_id):
@@ -80,7 +79,6 @@ async def process_job(job_id: str):
         try:
             bank_result = await asyncio.to_thread(identify_bank, extracted_pdf, job.provider)
         except Exception:
-            logger.exception("Bank identification failed for job_id=%s, falling back to Unknown", job_id)
             bank_result = type('BankResult', (), {'name': 'Unknown'})()
 
         if registry.is_job_cancelled(job_id):
@@ -95,7 +93,6 @@ async def process_job(job_id: str):
         try:
             extraction_result = await asyncio.to_thread(extract_expenses, extracted_pdf, job.provider, bank_result.name)
         except ExtractionError as e:
-            logger.exception("LLM extraction failed for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"LLM extraction failed: {str(e)}")
             return
@@ -127,16 +124,14 @@ async def process_job(job_id: str):
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_completed(job_id, excel_path)
         except Exception as e:
-            logger.exception("Excel generation failed for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"Excel generation failed: {str(e)}")
     except Exception as e:
-        logger.exception("Unexpected error during job processing for job_id=%s", job_id)
         try:
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"Processing failed: {str(e)}")
         except Exception:
-            logger.exception("Failed to set job error status for job_id=%s", job_id)
+            pass
 
 
 def start_processing(job_id: str):
@@ -162,17 +157,14 @@ async def process_job_with_password(job_id: str, password: str):
         try:
             extracted_pdf = await asyncio.to_thread(_extract_pdf_text, job.pdf_content, password)
         except PDFPasswordRequired as e:
-            logger.info("PDF still requires password for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_password_required(job_id, str(e))
             return
         except PDFPasswordIncorrect as e:
-            logger.info("PDF password incorrect for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_password_required(job_id, str(e))
             return
         except PDFExtractionError as e:
-            logger.exception("PDF extraction failed for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"PDF extraction failed: {str(e)}")
             return
@@ -192,7 +184,6 @@ async def process_job_with_password(job_id: str, password: str):
         try:
             bank_result = await asyncio.to_thread(identify_bank, extracted_pdf, job.provider)
         except Exception:
-            logger.exception("Bank identification failed for job_id=%s, falling back to Unknown", job_id)
             bank_result = type('BankResult', (), {'name': 'Unknown'})()
 
         if registry.is_job_cancelled(job_id):
@@ -207,7 +198,6 @@ async def process_job_with_password(job_id: str, password: str):
         try:
             extraction_result = await asyncio.to_thread(extract_expenses, extracted_pdf, job.provider, bank_result.name)
         except ExtractionError as e:
-            logger.exception("LLM extraction failed for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"LLM extraction failed: {str(e)}")
             return
@@ -239,16 +229,14 @@ async def process_job_with_password(job_id: str, password: str):
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_completed(job_id, excel_path)
         except Exception as e:
-            logger.exception("Excel generation failed for job_id=%s", job_id)
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"Excel generation failed: {str(e)}")
     except Exception as e:
-        logger.exception("Unexpected error during job processing with password for job_id=%s", job_id)
         try:
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"Processing failed: {str(e)}")
         except Exception:
-            logger.exception("Failed to set job error status for job_id=%s", job_id)
+            pass
 
 
 def start_processing_with_password(job_id: str, password: str):

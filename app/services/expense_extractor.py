@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -7,8 +6,6 @@ from app.schemas.pdf import ExtractedPDF
 from app.schemas.transaction import ExtractionResult, Transaction
 from app.services.llm_client import LLMClient, LLMError, get_llm_client
 from app.services.rag_loader import load_knowledge_for_issuer
-
-logger = logging.getLogger(__name__)
 
 
 class ExtractionError(Exception):
@@ -60,13 +57,11 @@ def call_llm(text: str, llm_client: LLMClient, knowledge: str = "", retry: bool 
     try:
         content = llm_client.chat(system_prompt, prompt)
     except LLMError as e:
-        logger.exception("LLM chat request failed")
-        raise ExtractionError(str(e)) from e
+        raise ExtractionError(str(e))
 
     try:
         data = json.loads(content)
     except json.JSONDecodeError:
-        logger.exception("Failed to parse LLM response as JSON")
         raise ExtractionError("Invalid JSON response from LLM")
 
     if "transactions" not in data:
@@ -75,8 +70,7 @@ def call_llm(text: str, llm_client: LLMClient, knowledge: str = "", retry: bool 
     try:
         result = ExtractionResult(**data)
     except Exception as e:
-        logger.exception("Failed to parse transaction data from LLM response")
-        raise ExtractionError(f"Invalid transaction data: {str(e)}") from e
+        raise ExtractionError(f"Invalid transaction data: {str(e)}")
 
     return result
 
@@ -93,8 +87,7 @@ def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline", iss
     try:
         llm_client = get_llm_client(provider)
     except LLMError as e:
-        logger.exception("Failed to initialize LLM client for provider: %s", provider)
-        raise ExtractionError(str(e)) from e
+        raise ExtractionError(str(e))
 
     knowledge = load_knowledge_for_issuer(issuer)
 

@@ -1,11 +1,8 @@
 import json
-import logging
 import urllib.request
 import urllib.error
 
 from app.services.llm_client import LLMClient, LLMError
-
-logger = logging.getLogger(__name__)
 
 
 class OllamaClient(LLMClient):
@@ -40,10 +37,8 @@ class OllamaClient(LLMClient):
             with urllib.request.urlopen(req, timeout=3600) as response:
                 result = json.loads(response.read().decode("utf-8"))
         except urllib.error.URLError as e:
-            logger.exception("Ollama connection error at %s", self.base_url)
-            raise LLMError(f"Ollama connection error: {str(e)}. Make sure Ollama is running at {self.base_url}") from e
+            raise LLMError(f"Ollama connection error: {str(e)}. Make sure Ollama is running at {self.base_url}")
         except json.JSONDecodeError:
-            logger.exception("Failed to parse Ollama response as JSON")
             raise LLMError("Invalid response from Ollama")
 
         content = result.get("message", {}).get("content", "")

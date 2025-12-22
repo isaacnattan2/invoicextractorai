@@ -1,8 +1,6 @@
-import logging
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger(__name__)
 
 KNOWLEDGE_DIR = Path(__file__).parent.parent / "knowledge"
 
@@ -43,5 +41,4 @@ def _load_knowledge_file(filename: str) -> str:
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except (IOError, OSError):
-        logger.exception("Failed to read knowledge file: %s", filename)
         return ""

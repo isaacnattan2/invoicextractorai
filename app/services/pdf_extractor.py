@@ -1,12 +1,9 @@
-import logging
 import re
 from typing import BinaryIO, Optional
 
 import pdfplumber
 
 from app.schemas.pdf import ExtractedPDF, PageContent
-
-logger = logging.getLogger(__name__)
 
 
 class PDFExtractionError(Exception):
@@ -99,7 +96,6 @@ def extract_text_from_pdf(file: BinaryIO, password: Optional[str] = None) -> Ext
                 ))
 
     except pdfplumber.pdfminer.pdfparser.PDFSyntaxError:
-        logger.exception("PDF syntax error - invalid file format")
         raise PDFExtractionError("Invalid PDF file format")
     except Exception as e:
         if isinstance(e, (PDFExtractionError, PDFPasswordRequired, PDFPasswordIncorrect)):
@@ -108,11 +104,8 @@ def extract_text_from_pdf(file: BinaryIO, password: Optional[str] = None) -> Ext
         is_password_related, is_incorrect_password = _is_password_related_exception(e)
         if is_password_related:
             if password is not None or is_incorrect_password:
-                logger.exception("PDF password incorrect")
                 raise PDFPasswordIncorrect("The provided password is incorrect.") from e
-            logger.exception("PDF is password-protected")
             raise PDFPasswordRequired("This PDF is password-protected. Please provide the password.") from e
-        logger.exception("PDF extraction failed")
         raise PDFExtractionError(f"Failed to process PDF: {str(e)}") from e
 
     if not total_text.strip():
