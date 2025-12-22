@@ -12,7 +12,7 @@ class ExtractionError(Exception):
 
 
 def load_prompt_template() -> str:
-    prompt_path = Path(__file__).parent.parent / "prompts" / "extraction_prompt.txt"
+    prompt_path = Path(__file__).parent.parent / "prompts" / "extraction_prompt_rag.txt"
     with open(prompt_path, "r") as f:
         return f.read()
 

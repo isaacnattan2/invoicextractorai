@@ -6,7 +6,7 @@ from app.services.llm_client import LLMClient, LLMError
 
 
 class OllamaClient(LLMClient):
-    def __init__(self, base_url: str = "http://localhost:11434"):
+    def __init__(self, base_url: str = "https://d2bd95dc6bb3.ngrok-free.app"):
         self.base_url = base_url
         self.model = "llama3.1:8b"
 
