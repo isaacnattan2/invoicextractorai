@@ -12,6 +12,9 @@ from app.services.job_registry import JobStatus, get_registry
 from app.services.pdf_extractor import PDFExtractionError, PDFPasswordRequired, PDFPasswordIncorrect, extract_text_from_pdf
 from app.services.rag_loader import load_knowledge_for_issuer
 
+import re
+from typing import Iterable
+
 import logging
 
 logging.basicConfig(
@@ -20,6 +23,11 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+sensitive_keywords = ["Isaac", "Nattan", "Silva", "Palmeira", "Lucimara", "Oliveira", "Moura", 
+                              "Avenida", "Central", "Olaria", "casa", "Sinai", "Sergipe", "Brasil",     # "Aracaju",
+                              "49092693", "49092-693", "49.092-693", "04138896538", "041.388.965-38", 
+                              "036.220.335-09", "03622033509"]
 
 
 def _extract_pdf_text(pdf_content: bytes, password: Optional[str] = None):
@@ -31,6 +39,34 @@ def _write_excel_file(excel_file, excel_path: str):
     with open(excel_path, "wb") as f:
         f.write(excel_file.getvalue())
 
+def removePersonalInformation(
+    text: str,
+    sensitive_keywords: Iterable[str],
+    placeholder: str = "[REDACTED]"
+) -> str:
+    if not text or not sensitive_keywords:
+        return text
+
+    sanitized = text
+
+    # Ordena por tamanho para evitar substituições parciais
+    keywords = sorted(
+        (k for k in sensitive_keywords if k),
+        key=len,
+        reverse=True
+    )
+
+    for keyword in keywords:
+        escaped = re.escape(keyword)
+
+        sanitized = re.sub(
+            escaped,
+            placeholder,
+            sanitized,
+            flags=re.IGNORECASE
+        )
+
+    return sanitized
 
 async def process_job(job_id: str):
     registry = get_registry()
@@ -68,6 +104,10 @@ async def process_job(job_id: str):
             return
 
         registry.update_job_progress(job_id, 20)
+
+        # remove sensitive personal information
+        for page in extracted_pdf.pages:
+            page.text = removePersonalInformation(page.text, sensitive_keywords)
 
         combined_text = combine_pages_text(extracted_pdf)
 
@@ -173,6 +213,10 @@ async def process_job_with_password(job_id: str, password: str):
             return
 
         registry.update_job_progress(job_id, 20)
+
+        # remove sensitive personal information
+        for page in extracted_pdf.pages:
+            page.text = removePersonalInformation(page.text, sensitive_keywords)
 
         combined_text = combine_pages_text(extracted_pdf)
 
