@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 from openpyxl.styles import Font
@@ -8,7 +8,7 @@ from openpyxl.utils import get_column_letter
 from app.schemas.transaction import Transaction
 
 
-def generate_excel(transactions: List[Transaction]) -> BytesIO:
+def generate_excel(transactions: List[Transaction], invoice_due_date: Optional[str] = None) -> BytesIO:
     data = []
     for t in transactions:
         data.append({
@@ -19,11 +19,12 @@ def generate_excel(transactions: List[Transaction]) -> BytesIO:
             "Currency": t.currency,
             "Page": t.page,
             "Confidence": t.confidence,
-            "Bank": t.bank
+            "Bank": t.bank,
+            "invoice_due_date": invoice_due_date or ""
         })
 
     df = pd.DataFrame(data, columns=[
-        "Date", "Description", "Amount", "Installment", "Currency", "Page", "Confidence", "Bank"
+        "Date", "Description", "Amount", "Installment", "Currency", "Page", "Confidence", "Bank", "invoice_due_date"
     ])
 
     output = BytesIO()
@@ -54,7 +55,8 @@ def generate_excel(transactions: List[Transaction]) -> BytesIO:
             "E": 10,
             "F": 8,
             "G": 12,
-            "H": 20
+            "H": 20,
+            "I": 16
         }
 
         for col_letter, width in column_widths.items():

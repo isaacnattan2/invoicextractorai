@@ -154,11 +154,12 @@ async def process_job(job_id: str):
             job_id,
             job.filename,
             bank_result.name,
-            extraction_result.transactions
+            extraction_result.transactions,
+            extraction_result.invoice_due_date
         )
 
         try:
-            excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions)
+            excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions, extraction_result.invoice_due_date)
             
             temp_dir = os.path.join(tempfile.gettempdir(), "invoicextractor")
             os.makedirs(temp_dir, exist_ok=True)
@@ -271,11 +272,12 @@ async def process_job_with_password(job_id: str, password: str):
             job_id,
             job.filename,
             bank_result.name,
-            extraction_result.transactions
+            extraction_result.transactions,
+            extraction_result.invoice_due_date
         )
 
         try:
-            excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions)
+            excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions, extraction_result.invoice_due_date)
             
             temp_dir = os.path.join(tempfile.gettempdir(), "invoicextractor")
             os.makedirs(temp_dir, exist_ok=True)
