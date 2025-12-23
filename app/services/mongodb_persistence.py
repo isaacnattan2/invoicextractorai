@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
@@ -68,7 +68,8 @@ def persist_extraction(
     job_id: str,
     filename: str,
     bank: str,
-    transactions: List[Transaction]
+    transactions: List[Transaction],
+    invoice_due_date: Optional[str] = None
 ) -> bool:
     """
     Persist extracted invoice data to MongoDB with deduplication.
@@ -100,6 +101,7 @@ def persist_extraction(
             "job_id": job_id,
             "filename": filename,
             "bank": bank,
+            "invoice_due_date": invoice_due_date,
             "extracted_at": datetime.utcnow(),
             "transactions": [t.model_dump() for t in transactions]
         }

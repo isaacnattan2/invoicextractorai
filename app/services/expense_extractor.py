@@ -99,4 +99,7 @@ def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline", iss
 
     unique_transactions = remove_duplicates(result.transactions)
 
-    return ExtractionResult(transactions=unique_transactions)
+    return ExtractionResult(
+        invoice_due_date=result.invoice_due_date,
+        transactions=unique_transactions
+    )
