@@ -7,3 +7,4 @@ openai
 pandas
 openpyxl
 sse-starlette
+pymongo
