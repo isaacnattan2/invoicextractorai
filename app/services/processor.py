@@ -11,6 +11,7 @@ from app.services.expense_extractor import ExtractionError, extract_expenses, co
 from app.services.job_registry import JobStatus, get_registry
 from app.services.pdf_extractor import PDFExtractionError, PDFPasswordRequired, PDFPasswordIncorrect, extract_text_from_pdf
 from app.services.rag_loader import load_knowledge_for_issuer
+from app.services.mongodb_persistence import persist_extraction
 
 import re
 from typing import Iterable
@@ -148,6 +149,14 @@ async def process_job(job_id: str):
         if registry.is_job_cancelled(job_id):
             return
 
+        await asyncio.to_thread(
+            persist_extraction,
+            job_id,
+            job.filename,
+            bank_result.name,
+            extraction_result.transactions
+        )
+
         try:
             excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions)
             
@@ -256,6 +265,14 @@ async def process_job_with_password(job_id: str, password: str):
 
         if registry.is_job_cancelled(job_id):
             return
+
+        await asyncio.to_thread(
+            persist_extraction,
+            job_id,
+            job.filename,
+            bank_result.name,
+            extraction_result.transactions
+        )
 
         try:
             excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions)
