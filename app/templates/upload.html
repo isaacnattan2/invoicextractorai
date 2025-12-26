@@ -7,6 +7,25 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <div id="password-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Password Required</h3>
+            <p id="password-modal-message">This PDF is password-protected. Please enter the password to continue.</p>
+            <form id="password-form">
+                <input type="hidden" id="password-job-id" value="">
+                <div class="form-group">
+                    <label for="pdf-password">PDF Password:</label>
+                    <input type="password" id="pdf-password" name="password" required>
+                </div>
+                <div id="password-error" class="error-message" style="display: none;"></div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn-submit">Submit</button>
+                    <button type="button" class="btn-cancel" onclick="closePasswordModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="container">
         <h1>Invoice Extractor AI</h1>
         <p>Upload a PDF invoice to extract credit card transactions.</p>
@@ -76,6 +95,8 @@
                         <form action="/jobs/{{ job.id }}/cancel" method="post" style="display:inline;">
                             <button type="submit" class="btn-cancel">Cancel</button>
                         </form>
+                        {% elif job.status == "PASSWORD_REQUIRED" %}
+                        <button type="button" class="btn-password" onclick="showPasswordModal('{{ job.id }}', '{{ job.error_message | default('') | e }}')">Enter Password</button>
                         {% elif job.status == "COMPLETED" and job.has_excel %}
                         <a href="/jobs/{{ job.id }}/download" class="btn-download">Download</a>
                         {% endif %}
@@ -133,6 +154,58 @@
             }
         }
 
+        function showPasswordModal(jobId, errorMessage) {
+            document.getElementById('password-job-id').value = jobId;
+            document.getElementById('pdf-password').value = '';
+            document.getElementById('password-error').style.display = 'none';
+            if (errorMessage) {
+                document.getElementById('password-modal-message').textContent = errorMessage;
+            } else {
+                document.getElementById('password-modal-message').textContent = 'This PDF is password-protected. Please enter the password to continue.';
+            }
+            document.getElementById('password-modal').style.display = 'flex';
+            document.getElementById('pdf-password').focus();
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').style.display = 'none';
+            document.getElementById('password-job-id').value = '';
+            document.getElementById('pdf-password').value = '';
+            document.getElementById('password-error').style.display = 'none';
+        }
+
+        document.getElementById('password-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var jobId = document.getElementById('password-job-id').value;
+            var password = document.getElementById('pdf-password').value;
+            
+            if (!jobId || !password) {
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('password', password);
+
+            fetch('/jobs/' + jobId + '/password', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(response) {
+                if (response.ok) {
+                    closePasswordModal();
+                } else {
+                    return response.json().then(function(data) {
+                        document.getElementById('password-error').textContent = data.detail || 'Failed to submit password';
+                        document.getElementById('password-error').style.display = 'block';
+                    });
+                }
+            })
+            .catch(function(error) {
+                document.getElementById('password-error').textContent = 'Network error. Please try again.';
+                document.getElementById('password-error').style.display = 'block';
+            });
+        });
+
         function escapeHtml(text) {
             if (!text) return '';
             var div = document.createElement('div');
@@ -187,6 +260,8 @@
             var actionsHtml = '';
             if (job.status === 'WAITING' || job.status === 'PROCESSING') {
                 actionsHtml = '<form action="/jobs/' + job.id + '/cancel" method="post" style="display:inline;"><button type="submit" class="btn-cancel">Cancel</button></form>';
+            } else if (job.status === 'PASSWORD_REQUIRED') {
+                actionsHtml = '<button type="button" class="btn-password" onclick="showPasswordModal(\'' + job.id + '\', \'' + escapeHtml(job.error_message || '') + '\')">Enter Password</button>';
             } else if (job.status === 'COMPLETED' && (job.has_excel || job.download_url)) {
                 actionsHtml = '<a href="/jobs/' + job.id + '/download" class="btn-download">Download</a>';
             }

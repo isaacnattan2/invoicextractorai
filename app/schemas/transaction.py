@@ -23,6 +23,7 @@ class Transaction(BaseModel):
 
 
 class ExtractionResult(BaseModel):
+    invoice_due_date: Optional[str] = None
     transactions: List[Transaction]
 
 
