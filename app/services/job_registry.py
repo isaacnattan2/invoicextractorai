@@ -140,6 +140,23 @@ class JobRegistry:
         self._emit_event(job)
         return job
 
+    def create_job_from_text(self, provider: str, raw_text: str) -> Job:
+        """Create a job from raw text input, bypassing PDF extraction."""
+        job_id = str(uuid.uuid4())[:8]
+        model_name = get_model_name_for_provider(provider)
+        job = Job(
+            id=job_id,
+            filename="text_input.txt",
+            provider=provider,
+            model_name=model_name,
+            pdf_content=None,
+            extracted_text=raw_text
+        )
+        with self._jobs_lock:
+            self._jobs[job_id] = job
+        self._emit_event(job)
+        return job
+
     def get_job(self, job_id: str) -> Optional[Job]:
         with self._jobs_lock:
             return self._jobs.get(job_id)

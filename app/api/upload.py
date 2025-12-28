@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sse_starlette.sse import EventSourceResponse
 
 from app.services.job_registry import JobStatus, get_registry
-from app.services.processor import start_processing, start_processing_with_password
+from app.services.processor import start_processing, start_processing_with_password, start_processing_text
 
 import re
 
@@ -35,6 +35,32 @@ async def upload_file(
     job = registry.create_job(filename=filename, provider=provider, pdf_content=contents)
 
     start_processing(job.id)
+
+    return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/upload-text")
+async def upload_text(
+    text: str = Form(...),
+    provider: str = Form(default="offline")
+):
+    """
+    Upload raw text for processing, bypassing PDF extraction.
+    This endpoint allows users to paste already-extracted text directly.
+    """
+    if not text or not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Text content is required."
+        )
+
+    if provider not in ("offline", "online"):
+        provider = "offline"
+
+    registry = get_registry()
+    job = registry.create_job_from_text(provider=provider, raw_text=text.strip())
+
+    start_processing_text(job.id)
 
     return RedirectResponse(url="/", status_code=303)
 

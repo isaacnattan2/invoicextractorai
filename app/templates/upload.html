@@ -29,7 +29,13 @@
     <div class="container">
         <h1>Invoice Extractor AI</h1>
         <p>Upload a PDF invoice to extract credit card transactions.</p>
-        <form action="/upload" method="post" enctype="multipart/form-data">
+        
+        <div class="input-mode-toggle">
+            <button type="button" id="btn-pdf-mode" class="mode-btn active" onclick="switchToMode('pdf')">Upload PDF</button>
+            <button type="button" id="btn-text-mode" class="mode-btn" onclick="switchToMode('text')">Inserir texto extraído</button>
+        </div>
+
+        <form id="pdf-form" action="/upload" method="post" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="provider">LLM Provider:</label>
                 <select id="provider" name="provider">
@@ -42,6 +48,21 @@
                 <input type="file" id="file" name="file" accept=".pdf,application/pdf" required>
             </div>
             <button type="submit">Upload & Process</button>
+        </form>
+
+        <form id="text-form" action="/upload-text" method="post" style="display: none;">
+            <div class="form-group">
+                <label for="text-provider">LLM Provider:</label>
+                <select id="text-provider" name="provider">
+                    <option value="offline" selected>Offline (Local - Ollama)</option>
+                    <option value="online">Online (OpenAI)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="extracted-text">Texto extraído da fatura:</label>
+                <textarea id="extracted-text" name="text" rows="15" placeholder="Cole aqui o texto já extraído da fatura de cartão de crédito..." required></textarea>
+            </div>
+            <button type="submit">Processar texto</button>
         </form>
     </div>
 
@@ -141,6 +162,25 @@
             llm_prompt: {% if job.llm_prompt %}{{ job.llm_prompt | tojson }}{% else %}null{% endif %}
         };
         {% endfor %}
+
+        function switchToMode(mode) {
+            var pdfForm = document.getElementById('pdf-form');
+            var textForm = document.getElementById('text-form');
+            var btnPdf = document.getElementById('btn-pdf-mode');
+            var btnText = document.getElementById('btn-text-mode');
+            
+            if (mode === 'pdf') {
+                pdfForm.style.display = 'block';
+                textForm.style.display = 'none';
+                btnPdf.classList.add('active');
+                btnText.classList.remove('active');
+            } else {
+                pdfForm.style.display = 'none';
+                textForm.style.display = 'block';
+                btnPdf.classList.remove('active');
+                btnText.classList.add('active');
+            }
+        }
 
         function toggleDetails(jobId) {
             var detailsRow = document.getElementById('details-' + jobId);

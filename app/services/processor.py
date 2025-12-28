@@ -188,6 +188,118 @@ def start_processing(job_id: str):
     asyncio.create_task(process_job(job_id))
 
 
+async def process_text_job(job_id: str):
+    """Process a job created from raw text input, bypassing PDF extraction."""
+    registry = get_registry()
+    
+    try:
+        job = registry.get_job(job_id)
+        
+        if not job or not job.extracted_text:
+            registry.set_job_error(job_id, "Job not found or text content missing")
+            return
+
+        if registry.is_job_cancelled(job_id):
+            return
+
+        registry.update_job_status(job_id, JobStatus.PROCESSING, progress=0)
+
+        # Skip PDF extraction - text is already available
+        # Create an ExtractedPDF-like structure with the text as a single page
+        from app.schemas.pdf import ExtractedPDF, PageContent
+        
+        raw_text = job.extracted_text
+        
+        # Remove sensitive personal information
+        sanitized_text = removePersonalInformation(raw_text, sensitive_keywords)
+        
+        # Create a single-page structure
+        extracted_pdf = ExtractedPDF(pages=[PageContent(page_number=1, text=sanitized_text)])
+
+        if registry.is_job_cancelled(job_id):
+            return
+
+        registry.update_job_progress(job_id, 20)
+
+        combined_text = combine_pages_text(extracted_pdf)
+
+        if registry.is_job_cancelled(job_id):
+            return
+
+        registry.update_job_progress(job_id, 30)
+
+        try:
+            bank_result = await asyncio.to_thread(identify_bank, extracted_pdf, job.provider)
+        except Exception:
+            bank_result = type('BankResult', (), {'name': 'Unknown'})()
+
+        if registry.is_job_cancelled(job_id):
+            return
+
+        knowledge = load_knowledge_for_issuer(bank_result.name)
+        llm_prompt = build_llm_prompt(combined_text, knowledge)
+        registry.set_job_details(job_id, combined_text, llm_prompt)
+
+        registry.update_job_progress(job_id, 50)
+
+        try:
+            extraction_result = await asyncio.to_thread(extract_expenses, extracted_pdf, job.provider, bank_result.name)
+        except ExtractionError as e:
+            if not registry.is_job_cancelled(job_id):
+                registry.set_job_error(job_id, f"LLM extraction failed: {str(e)}")
+            return
+
+        if registry.is_job_cancelled(job_id):
+            return
+
+        registry.update_job_progress(job_id, 80)
+
+        for transaction in extraction_result.transactions:
+            transaction.bank = bank_result.name
+
+        if registry.is_job_cancelled(job_id):
+            return
+
+        await asyncio.to_thread(
+            persist_extraction,
+            job_id,
+            job.filename,
+            bank_result.name,
+            extraction_result.transactions,
+            extraction_result.invoice_due_date
+        )
+
+        try:
+            excel_file = await asyncio.to_thread(generate_excel, extraction_result.transactions, extraction_result.invoice_due_date)
+            
+            temp_dir = os.path.join(tempfile.gettempdir(), "invoicextractor")
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            base_name = job.filename.rsplit(".", 1)[0] if job.filename else "text_input"
+            model_label = job.model_name or job.provider
+            excel_filename = f"{base_name}_{job_id}_transactions_{model_label}.xlsx"
+            excel_path = os.path.join(temp_dir, excel_filename)
+            
+            await asyncio.to_thread(_write_excel_file, excel_file, excel_path)
+            
+            if not registry.is_job_cancelled(job_id):
+                registry.set_job_completed(job_id, excel_path)
+        except Exception as e:
+            if not registry.is_job_cancelled(job_id):
+                registry.set_job_error(job_id, f"Excel generation failed: {str(e)}")
+    except Exception as e:
+        try:
+            if not registry.is_job_cancelled(job_id):
+                registry.set_job_error(job_id, f"Processing failed: {str(e)}")
+        except Exception:
+            pass
+
+
+def start_processing_text(job_id: str):
+    """Start processing a text input job."""
+    asyncio.create_task(process_text_job(job_id))
+
+
 async def process_job_with_password(job_id: str, password: str):
     registry = get_registry()
     
