@@ -8,6 +8,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.services.job_registry import JobStatus, get_registry
 from app.services.processor import start_processing, start_processing_with_password, start_processing_text
+from app.services.receipt_processor import start_receipt_processing
 
 import re
 
@@ -61,6 +62,33 @@ async def upload_text(
     job = registry.create_job_from_text(provider=provider, raw_text=text.strip())
 
     start_processing_text(job.id)
+
+    return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/upload-receipt")
+async def upload_receipt(
+    text: str = Form(...),
+    provider: str = Form(default="offline")
+):
+    """
+    Upload raw receipt text (NFC-e / CF-e) for processing.
+    This endpoint processes Brazilian fiscal receipt text and extracts product items.
+    Deduplication is handled entirely by the LLM.
+    """
+    if not text or not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Receipt text content is required."
+        )
+
+    if provider not in ("offline", "online"):
+        provider = "offline"
+
+    registry = get_registry()
+    job = registry.create_job_from_text(provider=provider, raw_text=text.strip())
+
+    start_receipt_processing(job.id)
 
     return RedirectResponse(url="/", status_code=303)
 
