@@ -7,20 +7,33 @@ The input text may contain:
 
 You must structure the data logically and consistently.
 
+IMPORTANT GLOBAL RULE (VERY IMPORTANT):
+- DO NOT remove, merge, collapse, or deduplicate items.
+- If the same product appears more than once in the input text, you MUST return each occurrence as a separate item.
+- Deduplication, reconciliation, or cleanup of duplicated items is handled OUTSIDE this system.
+- Your responsibility is STRICTLY to extract what is present in the text, not to normalize or optimize the result.
+
 IMPORTANT CONTEXT ABOUT ITEMS:
 - Each purchased item in the receipt starts with a THREE-DIGIT NUMBER (e.g., 001, 002, 010).
 - This three-digit number represents the item identifier (item_id).
 - All other information in the item line(s) belongs to that item_id.
+- If the same item_id appears multiple times in the text, return multiple items accordingly.
 
 IMPORTANT CONTEXT ABOUT MARKET NAME:
 - The supermarket or store name is usually located on the FIRST LINE of the receipt.
 - Prefer extracting the market name from the first clear line of the text.
 
+IMPORTANT CONTEXT ABOUT PURCHASE DATE:
+- The purchase date, when present, is commonly located NEAR THE END of the receipt.
+- It is often labeled as "Data de Emissão".
+- When multiple dates exist, prefer the date explicitly labeled "Data de Emissão" as the purchase_date.
+- Do NOT confuse purchase date with authorization date, protocol date, or processing timestamps.
+
 INSTRUCTIONS:
 
 1. Extract receipt-level metadata:
    - Supermarket or store name (preferably from the first line of the receipt)
-   - Purchase date
+   - Purchase date (prefer "Data de Emissão" when present, usually near the end of the receipt)
 
 2. Extract ONLY individual purchased items.
    Each item must include:
@@ -31,7 +44,13 @@ INSTRUCTIONS:
    - valor_total (total price for the item)
    - desconto (discount applied to the item, if any)
 
-3. Exclude the following from item extraction:
+3. IMPORTANT — NO DEDUPLICATION:
+   - Do NOT remove duplicated items.
+   - Do NOT merge items with the same item_id.
+   - Do NOT merge items with the same description, quantity, or price.
+   - Even if two items look identical, they must be returned as separate entries if they appear separately in the text.
+
+4. Exclude the following from item extraction:
    - Totals or subtotals
    - Taxes
    - Payment methods
@@ -39,7 +58,7 @@ INSTRUCTIONS:
    - Discounts not associated with a specific item
    - Non-product informational text
 
-4. Do NOT attempt to correct OCR spelling errors.
+5. Do NOT attempt to correct OCR spelling errors.
    Preserve product names as close as possible to the original text.
 
 OUTPUT FORMAT:
@@ -71,7 +90,7 @@ RULES:
   - If item_id cannot be confidently extracted, set item_id to null.
 
 - Dates:
-  - Extract the purchase date (not authorization date or emission date unless clearly the purchase date).
+  - Extract the purchase date (prefer "Data de Emissão" when present).
   - Dates must be in ISO format (YYYY-MM-DD).
   - If only day/month is present, infer the year from receipt context.
   - If the date is not clearly identifiable, return null.
@@ -84,6 +103,7 @@ RULES:
 - Discounts:
   - If no discount is associated with an item, set desconto to 0.
   - If a discount line clearly references a specific item_id, associate it with that item.
+  - If multiple discount lines exist for the same item_id, return the item with the desconto value as extracted, without consolidation.
 
 - Market name:
   - Prefer the first clear store name found, especially on the first line.
