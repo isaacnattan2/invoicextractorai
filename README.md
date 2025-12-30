@@ -1,4 +1,4 @@
-# Invoice Extractor AI
+# Mini Mercado Sinai II - Financeiro - Web
 
 A FastAPI-based application for extracting credit card transactions from PDF invoices using AI-powered semantic extraction and exporting them to Excel.
 
