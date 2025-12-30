@@ -10,7 +10,7 @@ class ReceiptExtractionError(Exception):
 
 
 def load_receipt_prompt_template() -> str:
-    prompt_path = Path(__file__).parent.parent / "prompts" / "receipt_extraction_prompt.txt"
+    prompt_path = Path(__file__).parent.parent / "prompts" / "receipt_extraction_prompt_with_removing_duplicates.txt"
     with open(prompt_path, "r") as f:
         return f.read()
 
