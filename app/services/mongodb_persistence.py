@@ -11,7 +11,7 @@ from app.schemas.transaction import Transaction
 
 logger = logging.getLogger(__name__)
 
-MONGODB_URI = "mongodb://localhost:27017"
+MONGODB_URI = "mongodb://192.168.0.199:27017"
 DATABASE_NAME = "invoice_extractor"
 COLLECTION_NAME = "invoice_extractions"
 

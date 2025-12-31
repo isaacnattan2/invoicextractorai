@@ -13,7 +13,7 @@ class ExtractionError(Exception):
 
 
 def load_prompt_template() -> str:
-    prompt_path = Path(__file__).parent.parent / "prompts" / "extraction_prompt_rag.txt"
+    prompt_path = Path(__file__).parent.parent / "prompts" / "extraction_prompt_with_no_deduplication.txt"
     with open(prompt_path, "r") as f:
         return f.read()
 
@@ -97,9 +97,9 @@ def extract_expenses(extracted_pdf: ExtractedPDF, provider: str = "offline", iss
     if avg_confidence < 0.8 and result.transactions:
         result = call_llm(combined_text, llm_client, knowledge, retry=True)
 
-    unique_transactions = remove_duplicates(result.transactions)
+    # unique_transactions = remove_duplicates(result.transactions)
 
     return ExtractionResult(
         invoice_due_date=result.invoice_due_date,
-        transactions=unique_transactions
+        transactions=result.transactions
     )
