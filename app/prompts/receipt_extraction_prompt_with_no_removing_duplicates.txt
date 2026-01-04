@@ -19,9 +19,6 @@ IMPORTANT CONTEXT ABOUT ITEMS:
 - All other information in the item line(s) belongs to that item_id.
 - If the same item_id appears multiple times in the text, return multiple items accordingly.
 
-IMPORTANT CONTEXT ABOUT MARKET NAME:
-- The supermarket or store name is usually located on the FIRST LINE of the receipt.
-- Prefer extracting the market name from the first clear line of the text.
 
 IMPORTANT CONTEXT ABOUT PURCHASE DATE:
 - The purchase date, when present, is commonly located NEAR THE END of the receipt.
@@ -68,7 +65,11 @@ The JSON must follow this exact structure:
 
 {
   "market_name": "string or null",
+  "cnpj": "string",
+  "address": "string or null"
+  "access_key": "string",
   "purchase_date": "YYYY-MM-DD or null",
+  "due_date": "string",
   "items": [
     {
       "item_id": "string or null",
@@ -76,7 +77,8 @@ The JSON must follow this exact structure:
       "quantidade": number,
       "valor_unitario": number,
       "valor_total": number,
-      "desconto": number
+      "desconto": number,
+      "ean": string
     }
   ]
 }
