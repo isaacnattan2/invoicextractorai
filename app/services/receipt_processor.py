@@ -82,7 +82,10 @@ async def process_receipt_job(job_id: str):
                 generate_receipt_excel,
                 extraction_result.items,
                 extraction_result.market_name,
-                extraction_result.purchase_date
+                extraction_result.cnpj,
+                extraction_result.address,
+                extraction_result.access_key,
+                extraction_result.issue_date
             )
             
             temp_dir = os.path.join(tempfile.gettempdir(), "invoicextractor")
