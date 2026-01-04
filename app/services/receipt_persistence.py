@@ -37,14 +37,18 @@ def _item_to_canonical_tuple(item: ReceiptItem) -> tuple:
 def generate_receipt_content_hash(
     items: List[ReceiptItem],
     market_name: Optional[str] = None,
-    purchase_date: Optional[str] = None
+    cnpj: Optional[str] = None,
+    access_key: Optional[str] = None,
+    issue_date: Optional[str] = None
 ) -> str:
     canonical_tuples = [_item_to_canonical_tuple(item) for item in items]
     sorted_tuples = sorted(canonical_tuples)
     
     hash_data = {
         "market_name": _normalize_string(market_name) if market_name else "",
-        "purchase_date": _normalize_string(purchase_date) if purchase_date else "",
+        "cnpj": _normalize_string(cnpj) if cnpj else "",
+        "access_key": _normalize_string(access_key) if access_key else "",
+        "issue_date": _normalize_string(issue_date) if issue_date else "",
         "items": sorted_tuples
     }
     
@@ -57,11 +61,14 @@ def generate_receipt_content_hash(
 def persist_receipt_extraction(
     job_id: str,
     market_name: Optional[str],
-    purchase_date: Optional[str],
+    cnpj: Optional[str],
+    address: Optional[str],
+    access_key: Optional[str],
+    issue_date: Optional[str],
     items: List[ReceiptItem]
 ) -> bool:
     try:
-        content_hash = generate_receipt_content_hash(items, market_name, purchase_date)
+        content_hash = generate_receipt_content_hash(items, market_name, cnpj, access_key, issue_date)
         
         client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
         db = client[DATABASE_NAME]
@@ -77,12 +84,15 @@ def persist_receipt_extraction(
             return True
         
         document = {
+            "market_name": market_name if market_name else None,
+            "cnpj": cnpj if cnpj else None,
+            "address": address if address else None,
+            "access_key": access_key if access_key else None,
+            "issue_date": issue_date if issue_date else None,
+            "items": [item.model_dump() for item in items],
             "content_hash": content_hash,
             "job_id": job_id,
-            "market_name": market_name,
-            "purchase_date": purchase_date,
-            "extracted_at": datetime.utcnow(),
-            "items": [item.model_dump() for item in items]
+            "extracted_at": datetime.utcnow()
         }
         
         collection.insert_one(document)
