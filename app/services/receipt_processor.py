@@ -68,7 +68,10 @@ async def process_receipt_job(job_id: str):
             persist_receipt_extraction,
             job_id,
             extraction_result.market_name,
-            extraction_result.purchase_date,
+            extraction_result.cnpj,
+            extraction_result.address,
+            extraction_result.access_key,
+            extraction_result.issue_date,
             extraction_result.items
         )
 
