@@ -40,6 +40,7 @@ The text usually contains:
    - Total price
    - Discount (optional)
    - EAN code (commercial or taxable)
+   - Tax blocks (ICMS, PIS, COFINS)
 
 --------------------------------------------------
 RECEIPT-LEVEL FIELD EXTRACTION RULES
@@ -108,7 +109,37 @@ IMPORTANT CONTEXT:
 - NFC-e product layouts do NOT reliably contain a three-digit item number
 - Therefore, item_id MUST be null unless a clear identifier exists
 
+--------------------------------------------------
+ITEM BOUNDARY HEURISTIC (CRITICAL FOR COMPLETENESS)
+--------------------------------------------------
+
+- In NFC-e receipts, EACH product item is typically followed by tax detail blocks.
+- The COFINS tax block represents the FINAL section of a product item.
+
+You MUST apply the following rule:
+
+- A product item MUST be considered COMPLETE only after its COFINS block has been encountered.
+- The appearance of a COFINS section indicates the END of the current item.
+- A NEW item may only begin AFTER the previous item's COFINS block has ended.
+
+This rule is used ONLY to:
+- Correctly detect item boundaries
+- Prevent items from being merged or skipped
+- Ensure ALL items in long receipts are extracted
+
+You MUST NOT:
+- Use COFINS to infer values
+- Extract COFINS itself as data
+- Skip items that contain COFINS
+- Assume missing items if COFINS is absent due to OCR failure
+
+If COFINS is missing due to OCR issues:
+- Use the closest preceding tax block (e.g., PIS) as a tentative boundary
+- Still extract the item if product data is present
+
+--------------------------------------------------
 For EACH product block, extract exactly ONE item:
+--------------------------------------------------
 
 - item_id:
   - Set to null unless a clear item identifier exists
