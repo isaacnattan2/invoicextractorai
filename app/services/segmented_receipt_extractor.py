@@ -1,9 +1,12 @@
 import json
+import logging
 from pathlib import Path
 from typing import List, Optional
 
 from app.schemas.receipt import ReceiptExtractionResult, ReceiptItem
 from app.services.llm_client import LLMClient, LLMError, get_llm_client
+
+logger = logging.getLogger(__name__)
 
 
 class SegmentedExtractionError(Exception):
@@ -22,6 +25,7 @@ def load_prompt_template(prompt_name: str) -> str:
 
 
 def extract_global_data(text: str, llm_client: LLMClient) -> dict:
+    logger.warning("[SEGMENTED] Step 1: Starting global data extraction")
     prompt_template = load_prompt_template("extraction_global_data.txt")
     prompt = prompt_template.replace("{text}", text)
     system_prompt = "You are a receipt data extraction system. Return only valid JSON."
@@ -36,10 +40,12 @@ def extract_global_data(text: str, llm_client: LLMClient) -> dict:
     except json.JSONDecodeError:
         raise SegmentedExtractionError("Invalid JSON response from LLM for global data")
 
+    logger.warning("[SEGMENTED] Step 1 completed: Global data extracted - market_name=%s, cnpj=%s", data.get("market_name"), data.get("cnpj"))
     return data
 
 
 def segment_item_blocks(text: str, llm_client: LLMClient) -> List[str]:
+    logger.warning("[SEGMENTED] Step 2: Starting item block segmentation")
     prompt_template = load_prompt_template("segmentation_item_blocks.txt")
     prompt = prompt_template.replace("{text}", text)
     system_prompt = "You are a text segmentation system. Return only valid JSON."
@@ -57,7 +63,9 @@ def segment_item_blocks(text: str, llm_client: LLMClient) -> List[str]:
     if "product_blocks" not in data:
         raise SegmentedExtractionError("Segmentation response missing 'product_blocks' field")
 
-    return data["product_blocks"]
+    blocks = data["product_blocks"]
+    logger.warning("[SEGMENTED] Step 2 completed: Segmented into %d item blocks", len(blocks))
+    return blocks
 
 
 def extract_single_item(block: str, llm_client: LLMClient) -> dict:
@@ -84,26 +92,35 @@ def extract_items_from_blocks(
     enable_chunking: bool = False,
     chunk_size: int = 10
 ) -> List[dict]:
+    logger.warning("[SEGMENTED] Step 3: Starting item extraction from %d blocks (chunking=%s, chunk_size=%d)", len(blocks), enable_chunking, chunk_size)
     if not blocks:
+        logger.warning("[SEGMENTED] Step 3: No blocks to process, returning empty list")
         return []
 
     all_items = []
 
     if not enable_chunking:
-        for block in blocks:
+        for idx, block in enumerate(blocks):
+            logger.warning("[SEGMENTED] Step 3: Extracting item %d/%d", idx + 1, len(blocks))
             item = extract_single_item(block, llm_client)
             all_items.append(item)
     else:
+        total_chunks = (len(blocks) + chunk_size - 1) // chunk_size
         for i in range(0, len(blocks), chunk_size):
+            chunk_num = i // chunk_size + 1
             chunk = blocks[i : i + chunk_size]
-            for block in chunk:
+            logger.warning("[SEGMENTED] Step 3: Processing chunk %d/%d with %d blocks", chunk_num, total_chunks, len(chunk))
+            for idx, block in enumerate(chunk):
+                logger.warning("[SEGMENTED] Step 3: Extracting item %d/%d (chunk %d)", i + idx + 1, len(blocks), chunk_num)
                 item = extract_single_item(block, llm_client)
                 all_items.append(item)
 
+    logger.warning("[SEGMENTED] Step 3 completed: Extracted %d items", len(all_items))
     return all_items
 
 
 def consolidate_result(global_data: dict, items: List[dict]) -> ReceiptExtractionResult:
+    logger.warning("[SEGMENTED] Step 4: Consolidating result with %d items", len(items))
     receipt_items = []
     for item_data in items:
         try:
@@ -132,6 +149,7 @@ def consolidate_result(global_data: dict, items: List[dict]) -> ReceiptExtractio
     except Exception as e:
         raise SegmentedExtractionError(f"Failed to consolidate result: {str(e)}")
 
+    logger.warning("[SEGMENTED] Step 4 completed: Result consolidated successfully")
     return result
 
 
@@ -141,6 +159,7 @@ def extract_receipt_segmented(
     enable_chunking: bool = False,
     chunk_size: int = 10
 ) -> ReceiptExtractionResult:
+    logger.warning("[SEGMENTED] Starting segmented extraction (provider=%s, chunking=%s, chunk_size=%d)", provider, enable_chunking, chunk_size)
     try:
         llm_client = get_llm_client(provider)
     except LLMError as e:
@@ -159,4 +178,5 @@ def extract_receipt_segmented(
 
     result = consolidate_result(global_data, items)
 
+    logger.warning("[SEGMENTED] Segmented extraction completed successfully with %d items", len(result.items))
     return result
