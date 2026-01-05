@@ -46,9 +46,12 @@ def extract_global_data(text: str, llm_client: LLMClient) -> dict:
 
 def segment_item_blocks(text: str, llm_client: LLMClient) -> List[str]:
     logger.warning("[SEGMENTED] Step 2: Starting item block segmentation")
-    prompt_template = load_prompt_template("segmentation_item_blocks.txt")
+    prompt_template = load_prompt_template("segmentation_item_blocks_v2.txt")
+    logger.warning("[SEGMENTED] Step 2: load_prompt_template")
     prompt = prompt_template.replace("{text}", text)
+    logger.warning("[SEGMENTED] Step 2: prompt_template.replace")
     system_prompt = "You are a text segmentation system. Return only valid JSON."
+    logger.warning("[SEGMENTED] Step 2: prompt_template.replace")
 
     try:
         content = llm_client.chat(system_prompt, prompt)
@@ -56,6 +59,7 @@ def segment_item_blocks(text: str, llm_client: LLMClient) -> List[str]:
         raise SegmentedExtractionError(f"Segmentation failed: {str(e)}")
 
     try:
+        logger.warning(f"[SEGMENTED] Step2: JSON Response: {content}")
         data = json.loads(content)
     except json.JSONDecodeError:
         raise SegmentedExtractionError("Invalid JSON response from LLM for segmentation")
