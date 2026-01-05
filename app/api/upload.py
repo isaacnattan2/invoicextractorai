@@ -69,12 +69,20 @@ async def upload_text(
 @router.post("/upload-receipt")
 async def upload_receipt(
     text: str = Form(...),
-    provider: str = Form(default="offline")
+    provider: str = Form(default="offline"),
+    enable_segmented_extraction: bool = Form(default=False),
+    enable_segment_chunking: bool = Form(default=False),
+    segment_chunk_size: int = Form(default=10)
 ):
     """
     Upload raw receipt text (NFC-e / CF-e) for processing.
     This endpoint processes Brazilian fiscal receipt text and extracts product items.
     Deduplication is handled entirely by the LLM.
+    
+    Optional segmented extraction parameters:
+    - enable_segmented_extraction: Use the 3-prompt orchestration strategy
+    - enable_segment_chunking: Split item blocks into chunks for multiple LLM calls
+    - segment_chunk_size: Number of items per LLM call when chunking is enabled
     """
     if not text or not text.strip():
         raise HTTPException(
@@ -85,8 +93,17 @@ async def upload_receipt(
     if provider not in ("offline", "online"):
         provider = "offline"
 
+    if segment_chunk_size < 1:
+        segment_chunk_size = 1
+
     registry = get_registry()
-    job = registry.create_job_from_text(provider=provider, raw_text=text.strip())
+    job = registry.create_job_from_text(
+        provider=provider,
+        raw_text=text.strip(),
+        enable_segmented_extraction=enable_segmented_extraction,
+        enable_segment_chunking=enable_segment_chunking,
+        segment_chunk_size=segment_chunk_size
+    )
 
     start_receipt_processing(job.id)
 

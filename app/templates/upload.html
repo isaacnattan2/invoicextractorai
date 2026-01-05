@@ -78,6 +78,28 @@
                 <label for="receipt-text">Texto do cupom fiscal (NFC-e / CF-e):</label>
                 <textarea id="receipt-text" style="width: 100%;" name="text" rows="15" placeholder="Cole aqui o texto OCR extraído do cupom fiscal brasileiro...&#10;&#10;O texto pode conter linhas duplicadas, erros de OCR, ou leituras sobrepostas.&#10;A deduplicação será feita automaticamente pelo LLM." required></textarea>
             </div>
+            <div class="form-group segmentation-options">
+                <div class="switch-container">
+                    <label class="switch">
+                        <input type="checkbox" id="enable-segmented-extraction" name="enable_segmented_extraction" value="true" onchange="toggleSegmentedOptions()">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="switch-label">Habilitar extração segmentada</span>
+                </div>
+                <div id="chunking-options" style="display: none; margin-top: 10px; margin-left: 20px;">
+                    <div class="switch-container">
+                        <label class="switch">
+                            <input type="checkbox" id="enable-segment-chunking" name="enable_segment_chunking" value="true" onchange="toggleChunkSizeInput()">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="switch-label">Separar por blocos de segmentos (mais chamadas ao LLM)</span>
+                    </div>
+                    <div id="chunk-size-container" style="display: none; margin-top: 10px;">
+                        <label for="segment-chunk-size">Tamanho do bloco:</label>
+                        <input type="number" id="segment-chunk-size" name="segment_chunk_size" value="10" min="1" style="width: 80px; margin-left: 10px;">
+                    </div>
+                </div>
+            </div>
             <button type="submit">Processar cupom fiscal</button>
         </form>
     </div>
@@ -203,6 +225,28 @@
             } else if (mode === 'receipt') {
                 receiptForm.style.display = 'block';
                 btnReceipt.classList.add('active');
+            }
+        }
+
+        function toggleSegmentedOptions() {
+            var checkbox = document.getElementById('enable-segmented-extraction');
+            var chunkingOptions = document.getElementById('chunking-options');
+            if (checkbox.checked) {
+                chunkingOptions.style.display = 'block';
+            } else {
+                chunkingOptions.style.display = 'none';
+                document.getElementById('enable-segment-chunking').checked = false;
+                document.getElementById('chunk-size-container').style.display = 'none';
+            }
+        }
+
+        function toggleChunkSizeInput() {
+            var checkbox = document.getElementById('enable-segment-chunking');
+            var chunkSizeContainer = document.getElementById('chunk-size-container');
+            if (checkbox.checked) {
+                chunkSizeContainer.style.display = 'block';
+            } else {
+                chunkSizeContainer.style.display = 'none';
             }
         }
 

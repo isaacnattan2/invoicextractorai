@@ -56,6 +56,9 @@ class Job:
     cancelled: bool = False
     extracted_text: Optional[str] = None
     llm_prompt: Optional[str] = None
+    enable_segmented_extraction: bool = False
+    enable_segment_chunking: bool = False
+    segment_chunk_size: int = 10
 
     def get_elapsed_seconds(self) -> int:
         if self.finished_at:
@@ -140,7 +143,14 @@ class JobRegistry:
         self._emit_event(job)
         return job
 
-    def create_job_from_text(self, provider: str, raw_text: str) -> Job:
+    def create_job_from_text(
+        self,
+        provider: str,
+        raw_text: str,
+        enable_segmented_extraction: bool = False,
+        enable_segment_chunking: bool = False,
+        segment_chunk_size: int = 10
+    ) -> Job:
         """Create a job from raw text input, bypassing PDF extraction."""
         job_id = str(uuid.uuid4())[:8]
         model_name = get_model_name_for_provider(provider)
@@ -150,7 +160,10 @@ class JobRegistry:
             provider=provider,
             model_name=model_name,
             pdf_content=None,
-            extracted_text=raw_text
+            extracted_text=raw_text,
+            enable_segmented_extraction=enable_segmented_extraction,
+            enable_segment_chunking=enable_segment_chunking,
+            segment_chunk_size=segment_chunk_size
         )
         with self._jobs_lock:
             self._jobs[job_id] = job

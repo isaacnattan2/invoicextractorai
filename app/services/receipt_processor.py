@@ -4,6 +4,7 @@ import tempfile
 
 from app.services.job_registry import JobStatus, get_registry
 from app.services.receipt_extractor import ReceiptExtractionError, extract_receipt_items, build_receipt_llm_prompt
+from app.services.segmented_receipt_extractor import SegmentedExtractionError, extract_receipt_segmented
 from app.services.receipt_excel_generator import generate_receipt_excel
 from app.services.receipt_persistence import persist_receipt_extraction
 
@@ -50,8 +51,17 @@ async def process_receipt_job(job_id: str):
         registry.update_job_progress(job_id, 30)
 
         try:
-            extraction_result = await asyncio.to_thread(extract_receipt_items, raw_text, job.provider)
-        except ReceiptExtractionError as e:
+            if job.enable_segmented_extraction:
+                extraction_result = await asyncio.to_thread(
+                    extract_receipt_segmented,
+                    raw_text,
+                    job.provider,
+                    job.enable_segment_chunking,
+                    job.segment_chunk_size
+                )
+            else:
+                extraction_result = await asyncio.to_thread(extract_receipt_items, raw_text, job.provider)
+        except (ReceiptExtractionError, SegmentedExtractionError) as e:
             if not registry.is_job_cancelled(job_id):
                 registry.set_job_error(job_id, f"LLM extraction failed: {str(e)}")
             return
