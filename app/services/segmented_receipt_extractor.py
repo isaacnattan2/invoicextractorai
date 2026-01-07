@@ -42,7 +42,7 @@ if not logger.handlers:
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
-BATCH_SIZE = 30
+BATCH_SIZE = 10
 ITEM_BLOCK_START = "===== ITEM_BLOCK_START ====="
 ITEM_BLOCK_END = "===== ITEM_BLOCK_END ====="
 
@@ -270,38 +270,54 @@ def build_delimited_batch_input(item_texts: List[str]) -> str:
 def extract_items_from_batch(
     batch_input: str, expected_count: int, llm_client: LLMClient
 ) -> List[dict]:
-    prompt_template = load_prompt_template("skeleton_strategy/item_extraction_prompt_v2.txt")
+    prompt_template = load_prompt_template(
+        "skeleton_strategy/item_extraction_prompt_v2.txt"
+    )
     prompt = prompt_template.replace("{text}", batch_input)
-    system_prompt = "You are a receipt item extraction system. Return only a valid JSON array."
+    system_prompt = (
+        "You are a receipt item extraction system. "
+        "Return only valid JSON."
+    )
 
     try:
         content = llm_client.chat(system_prompt, prompt)
         logger.warning(
             "[SKELETON] Phase 3b: LLM RESPONSE CONTENT:\n%s",
-            content
+            content,
         )
     except LLMError as e:
-        raise SegmentedExtractionError(f"Item batch extraction failed: {str(e)}")
+        raise SegmentedExtractionError(
+            f"Item batch extraction failed: {str(e)}"
+        )
 
     # --------------------------------------------------
     # PARSE JSON
     # --------------------------------------------------
     try:
-        items = json.loads(content)
-        items = items.items
+        data = json.loads(content)
     except json.JSONDecodeError as e:
         raise SegmentedExtractionError(
             f"Invalid JSON response from LLM for item extraction: {str(e)}"
         )
 
     # --------------------------------------------------
-    # VALIDATION (HARD FAIL)
+    # ACCEPT WRAPPER { "items": [...] }
     # --------------------------------------------------
-    if not isinstance(items, list):
+    if not isinstance(data, dict) or "items" not in data:
         raise SegmentedExtractionError(
-            "LLM response must be a JSON ARRAY (list of items)"
+            "LLM response must be a JSON object with an 'items' array"
         )
 
+    items = data["items"]
+
+    if not isinstance(items, list):
+        raise SegmentedExtractionError(
+            "'items' must be a JSON ARRAY"
+        )
+
+    # --------------------------------------------------
+    # COUNT VALIDATION
+    # --------------------------------------------------
     if len(items) != expected_count:
         logger.warning(
             "[SKELETON] Phase 3b: Item count mismatch - expected %d, got %d",
@@ -313,7 +329,7 @@ def extract_items_from_batch(
         )
 
     # --------------------------------------------------
-    # PER-ITEM VALIDATION (mínimo obrigatório)
+    # PER-ITEM VALIDATION
     # --------------------------------------------------
     REQUIRED_FIELDS = {
         "item",
@@ -337,6 +353,7 @@ def extract_items_from_batch(
             )
 
     return items
+
 
 
 # def extract_items_from_batch(
