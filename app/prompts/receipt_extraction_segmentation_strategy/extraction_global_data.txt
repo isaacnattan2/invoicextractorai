@@ -29,17 +29,56 @@ INPUT CHARACTERISTICS
 - Product blocks and tax blocks are present but MUST be ignored
 
 --------------------------------------------------
+CRITICAL EMITTER (EMITENTE) BLOCK HEURISTIC
+--------------------------------------------------
+
+Brazilian NFC-e documents commonly present the issuer data
+inside a structured "Emitente" block, usually formatted as:
+
+Emitente
+CNPJ Nome /Razão Social Inscrição Estadual UF
+<cnpj> <company_name> <state_registration> <UF>
+Destinatário
+
+EXTRACTION RULES FOR THIS BLOCK (PRIORITY):
+
+1. You MUST actively search for the "Emitente" section.
+2. Inside this section:
+   - Locate the line that contains a valid CNPJ.
+   - The company name (market_name) is the text that appears
+     IMMEDIATELY AFTER the CNPJ on the SAME LINE.
+3. The company name:
+   - May be uppercase
+   - May include "LTDA", "S/A", "ME", etc.
+   - MUST NOT include the CNPJ itself
+   - MUST NOT include state registration numbers or UF codes
+4. If this structured Emitente block is found:
+   - ALWAYS prefer this extraction over any other name found
+     elsewhere in the document.
+
+If the Emitente block is NOT clearly identifiable:
+- Fallback to the general market_name rules below.
+
+--------------------------------------------------
 RECEIPT-LEVEL EXTRACTION RULES
 --------------------------------------------------
 
 - market_name:
-  - Prefer "Nome Fantasia" when present
-  - Otherwise, use the first clear store name found
-  - Do NOT include CNPJ, address, phone numbers, or government headers
-  - If not confidently identifiable, return null
+  - PRIMARY RULE:
+    - Extract from the Emitente block as described above.
+  - SECONDARY RULE (fallback only):
+    - Prefer "Nome Fantasia" when explicitly labeled.
+    - Otherwise, use the first clear store name found near the top.
+  - DO NOT use:
+    - Footer messages
+    - Promotional text
+    - Website names
+    - Government headers
+  - If not confidently identifiable, return null.
 
 - cnpj:
   - Extract the CNPJ of the EMITENTE (issuer)
+  - Prefer the CNPJ found in the Emitente block
   - Remove punctuation and return digits only
   - Example: "06.057.223/0518-33" → "06057223051833"
 
@@ -50,20 +89,74 @@ RECEIPT-LEVEL EXTRACTION RULES
   - If not clearly present, return null
 
 --------------------------------------------------
-ACCESS KEY EXTRACTION & VALIDATION (CRITICAL)
+ACCESS KEY EXTRACTION & VALIDATION (CRITICAL – UPDATED)
 --------------------------------------------------
 
-- Extract the NFC-e "Chave de Acesso"
-- It MUST contain EXACTLY 44 numeric digits
+The NFC-e "Chave de Acesso" MUST contain EXACTLY 44 numeric digits
+AFTER REMOVING all non-numeric characters.
 
-Validation rules:
-- Remove all spaces and non-numeric characters
-- If the resulting value has MORE than 44 digits → INVALID
+GENERAL CHARACTERISTICS:
+
+- The access key usually appears in the FIRST LINES of the document
+- It is commonly located near headers such as:
+  - "Chave de Acesso"
+  - "Dados da NF-e"
+  - "Dados Gerais"
+
+YOU MUST APPLY ALL THE FOLLOWING HEURISTICS:
+
+--------------------------------------------------
+FORMAT 1 – FULLY FORMATTED / HYPHENATED KEY
+--------------------------------------------------
+
+The access key may appear fully formatted with separators, for example:
+
+28-2601-08.715.757/0021-17-55-004-004.173.112-171.371.508-3
+
+Extraction rules:
+
+1. Capture the full string associated with "Chave de Acesso"
+2. Remove ALL non-numeric characters (spaces, dots, slashes, hyphens)
+3. After normalization:
+   - If the resulting value has EXACTLY 44 digits → VALID
+   - Otherwise → INVALID
+
+--------------------------------------------------
+FORMAT 2 – BLOCKED NUMERIC GROUPS (COMMON IN PORTAL VIEWS)
+--------------------------------------------------
+
+The access key may appear split into multiple numeric blocks,
+usually 4 digits per block, directly BELOW the label "Chave de Acesso",
+for example:
+
+2825 1206 0572 2305 1833 6501 6000 0976 8411 6133 9733 65
+
+Extraction rules:
+
+1. Identify the label "Chave de Acesso"
+2. Collect ALL numeric groups that appear directly BELOW this label
+   and BEFORE unrelated text begins
+3. Concatenate ALL collected numeric groups IN ORDER
+4. Remove any remaining non-numeric characters
+5. After normalization:
+   - If the resulting value has EXACTLY 44 digits → VALID
+   - Otherwise → INVALID
+
+--------------------------------------------------
+STRICT VALIDATION RULES (MANDATORY)
+--------------------------------------------------
+
+- The access key MUST contain EXACTLY 44 digits after normalization
+- If the normalized value has MORE than 44 digits → INVALID
 - If it has LESS than 44 digits → INVALID
-- The NFC-e model code ("65") MUST NOT be appended or duplicated
-- NEVER truncate or pad digits to force length
+- The NFC-e model code ("65") MUST NOT be appended, duplicated,
+  inferred, or completed artificially
+- NEVER:
+  - Pad digits
+  - Truncate digits
+  - Guess missing digits
 
-If no valid 44-digit sequence exists:
+If NO valid 44-digit sequence exists:
 - Return "access_key": null
 
 --------------------------------------------------
