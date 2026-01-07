@@ -52,6 +52,12 @@ Extract EXACTLY ONE JSON object with the following fields:
   - Monetary values MAY use comma (,) as decimal separator.
   - Convert monetary values to numbers using dot (.) as decimal separator.
 
+    Example: 
+    Valor unitário de comercialização Valor unitário de tributação
+    0,2500000000 0,2500000000
+  
+  - In this case first value of second line is the "valor_unitario"
+
 - valor_total:
   - Prefer the value in the "Valor(R$)" column.
   - IMPORTANT: In NFC-e item tables, the product summary line often follows this format:
@@ -65,6 +71,15 @@ Extract EXACTLY ONE JSON object with the following fields:
     represents the TOTAL VALUE of the product (Valor(R$)).
   - Extract this LAST value as valor_total.
   - Convert to number using dot (.) as decimal separator.
+
+    Example 2:
+    16 SAC ASs cZ POL 58X70 2,0000 Un 0,50
+
+  - In this format, the LAST numeric value in the line
+    represents the TOTAL VALUE of the product (Valor(R$)).
+  - Extract this LAST value as valor_total.
+  - Convert to number using dot (.) as decimal separator.
+
 
 - desconto:
   - Discounts are usually NOT on the product summary line.
@@ -111,10 +126,56 @@ Extract EXACTLY ONE JSON object with the following fields:
   - Convert the extracted value to a number using dot (.) as decimal separator.
   - If no discount value can be confidently identified, return 0.
 
+  - Textual indicators such as:
+  "Indicador de Composição do Valor Total da NF-e"
+  or phrases like:
+  "1-0 valor do item (vProd) compõe o valor total da NF-e"
+  are NOT monetary values and MUST NEVER be interpreted as a discount.
+
+- The presence of numeric characters inside explanatory or indicator
+  text (e.g. "1-0", "1 - 0", "1–0") does NOT represent a discount value.
+
+- If the section contains the label "Valor do Desconto"
+  BUT there is NO explicit numeric value located ABOVE the
+  "Indicador de Composição do Valor Total da NF-e" text:
+  - You MUST treat this as NO DISCOUNT.
+  - Set "desconto" = 0.
+
 - ean:
   - Prefer "Código EAN Comercial".
   - Otherwise "Código EAN Tributável".
   - If neither exists, return null.
+
+  IMPORTANT EAN COLUMN RECOVERY RULE (MANDATORY):
+
+- When the section contains the header:
+  "Código EAN Comercial Unidade Comercial Quantidade Comercial"
+
+- The values in the following line(s) correspond POSITIONALLY to these columns.
+
+- The EAN value is composed of ALL text that appears
+  BEFORE the "Unidade Comercial" column value.
+
+- If OCR breaks the EAN across multiple tokens or spaces,
+  you MUST concatenate all fragments that appear before
+  the unit value (e.g. "PO", "UN", "KG").
+
+  Example:
+  Input line:
+  789284081 5028 PO 10,0000
+
+Interpretation:
+- EAN = "7892840815028"
+- Unidade = "PO"
+- Quantidade = "10,0000"
+
+- You MUST NOT:
+  - Stop at the first whitespace
+  - Drop numeric fragments that belong to the EAN
+  - Use the unit or quantity as part of the EAN
+
+- If no clear EAN can be reconstructed using this positional rule:
+  - Return "ean": null
 
 --------------------------------------------------
 EXCLUSIONS (DO NOT EXTRACT)

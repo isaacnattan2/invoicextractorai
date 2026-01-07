@@ -202,26 +202,151 @@ ITEM BOUNDARY HEURISTIC (CRITICAL)
 FOR EACH PRODUCT BLOCK, EXTRACT EXACTLY ONE ITEM
 --------------------------------------------------
 
-- item_id: null unless clearly present
-- item: description EXACTLY as written
+- item_id:
+  - Set to null unless a clear item identifier exists in the text.
+
+- item:
+  - Extract the product description EXACTLY as written.
+  - Preserve original casing and spelling.
+  - DO NOT normalize or correct OCR errors.
+
 - quantidade:
-  - May use comma as decimal separator
-  - Up to 4 decimal places
-  - Convert to number using dot
+  - Extract the quantity (Qtd.).
+  - Quantities MAY use comma (,) as decimal separator.
+  - Quantities MAY contain up to FOUR decimal places (e.g. 1,0000).
+  - Interpret "1,0000" as quantity = 1.0 (NOT 10000).
+  - Convert the quantity to a numeric value using dot (.) as decimal separator.
+
 - valor_unitario:
-  - Prefer "Valor unitário de comercialização"
-  - Convert to number
+  - Prefer "Valor unitário de comercialização".
+  - Monetary values MAY use comma (,) as decimal separator.
+  - Convert monetary values to numbers using dot (.) as decimal separator.
+
+    Example: 
+    Valor unitário de comercialização Valor unitário de tributação
+    0,2500000000 0,2500000000
+  
+  - In this case first value of second line is the "valor_unitario"
+
 - valor_total:
-  - LAST numeric value in product summary line
-  - Convert to number
+  - Prefer the value in the "Valor(R$)" column.
+  - IMPORTANT: In NFC-e item tables, the product summary line often follows this format:
+
+    <item_number> <product_name> <quantity> Un <Valor(R$)>
+
+    Example:
+    6 BAT RUF 33G CEB SALS 1,0000 Un 4,55
+
+  - In this format, the LAST numeric value in the line
+    represents the TOTAL VALUE of the product (Valor(R$)).
+  - Extract this LAST value as valor_total.
+  - Convert to number using dot (.) as decimal separator.
+
+    Example 2:
+    16 SAC ASs cZ POL 58X70 2,0000 Un 0,50
+
+  - In this format, the LAST numeric value in the line
+    represents the TOTAL VALUE of the product (Valor(R$)).
+  - Extract this LAST value as valor_total.
+  - Convert to number using dot (.) as decimal separator.
+
+
 - desconto:
-  - Prefer "Valor do Desconto" section
-  - OCR fallback: fifth line after description
-  - If absent, return 0
+  - Discounts are usually NOT on the product summary line.
+
+  - PRIMARY RULE (preferred case):
+    - Discounts usually appear in a separate section with the header:
+
+      "Valor do Desconto"
+
+    - The discount value corresponds to the numeric value that appears
+      IMMEDIATELY BELOW the text "Valor do Desconto".
+
+    Example:
+    Valor do Desconto Valor Total do Frete Valor do Seguro
+    1,12
+
+  - SECONDARY RULE (OCR failure fallback):
+    - In some cases, the OCR may FAIL to capture the header
+      "Valor do Desconto".
+
+    - In these cases, the discount may appear as a SINGLE numeric value
+      on its own line, without any label.
+
+    - When this happens:
+      - Locate the product description line (the first line of the block).
+      - Count the subsequent lines.
+      - The discount value will safely appear as the numeric value
+        located on the FIFTH line AFTER the product description line.
+
+    Example (header missing):
+    46 MAC N SABOR 74G COST 20,0000 PC 35,00
+    Código do Produto Código NCM
+    73702 19023000
+    Código EX da TIPI CFOP Outras Despesas Acessórias
+    5405
+    2.00
+    Indicador de Composição do Valor Total da NF-e
+
+    - In this example, "2.00" is the desconto.
+
+  - Apply the PRIMARY RULE whenever possible.
+  - Only apply the SECONDARY RULE if the "Valor do Desconto" header
+    is completely absent from the block.
+  - Convert the extracted value to a number using dot (.) as decimal separator.
+  - If no discount value can be confidently identified, return 0.
+
+  - Textual indicators such as:
+  "Indicador de Composição do Valor Total da NF-e"
+  or phrases like:
+  "1-0 valor do item (vProd) compõe o valor total da NF-e"
+  are NOT monetary values and MUST NEVER be interpreted as a discount.
+
+- The presence of numeric characters inside explanatory or indicator
+  text (e.g. "1-0", "1 - 0", "1–0") does NOT represent a discount value.
+
+- If the section contains the label "Valor do Desconto"
+  BUT there is NO explicit numeric value located ABOVE the
+  "Indicador de Composição do Valor Total da NF-e" text:
+  - You MUST treat this as NO DISCOUNT.
+  - Set "desconto" = 0.
+
 - ean:
-  - Prefer "Código EAN Comercial"
-  - Otherwise "Código EAN Tributável"
-  - Else null
+  - Prefer "Código EAN Comercial".
+  - Otherwise "Código EAN Tributável".
+  - If neither exists, return null.
+
+  IMPORTANT EAN COLUMN RECOVERY RULE (MANDATORY):
+
+- When the section contains the header:
+  "Código EAN Comercial Unidade Comercial Quantidade Comercial"
+
+- The values in the following line(s) correspond POSITIONALLY to these columns.
+
+- The EAN value is composed of ALL text that appears
+  BEFORE the "Unidade Comercial" column value.
+
+- If OCR breaks the EAN across multiple tokens or spaces,
+  you MUST concatenate all fragments that appear before
+  the unit value (e.g. "PO", "UN", "KG").
+
+  Example:
+  Input line:
+  789284081 5028 PO 10,0000
+
+Interpretation:
+- EAN = "7892840815028"
+- Unidade = "PO"
+- Quantidade = "10,0000"
+
+- You MUST NOT:
+  - Stop at the first whitespace
+  - Drop numeric fragments that belong to the EAN
+  - Use the unit or quantity as part of the EAN
+
+- If no clear EAN can be reconstructed using this positional rule:
+  - Return "ean": null
+
 
 --------------------------------------------------
 ITEM TOTAL CONSISTENCY VALIDATION (CRITICAL)
