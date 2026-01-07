@@ -270,7 +270,7 @@ def build_delimited_batch_input(item_texts: List[str]) -> str:
 def extract_items_from_batch(
     batch_input: str, expected_count: int, llm_client: LLMClient
 ) -> List[dict]:
-    prompt_template = load_prompt_template("skeleton_strategy/item_extraction_prompt.txt")
+    prompt_template = load_prompt_template("skeleton_strategy/item_extraction_prompt_v2.txt")
     prompt = prompt_template.replace("{text}", batch_input)
     system_prompt = "You are a receipt item extraction system. Return only a valid JSON array."
 
@@ -288,6 +288,7 @@ def extract_items_from_batch(
     # --------------------------------------------------
     try:
         items = json.loads(content)
+        items = items.items
     except json.JSONDecodeError as e:
         raise SegmentedExtractionError(
             f"Invalid JSON response from LLM for item extraction: {str(e)}"
