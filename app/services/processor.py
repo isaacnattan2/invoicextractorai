@@ -17,11 +17,31 @@ import re
 from typing import Iterable
 
 import logging
+from logging.handlers import RotatingFileHandler
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-)
+logger = logging.getLogger(__name__)
+# Evita duplicação de logs
+if not logger.handlers:
+
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+
+    # Handler de arquivo com rotação
+    file_handler = RotatingFileHandler(
+        filename="app.log",
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=5,
+        encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    # (Opcional) handler de console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 logger = logging.getLogger(__name__)
 

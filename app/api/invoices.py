@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -8,6 +9,29 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 logger = logging.getLogger(__name__)
+
+# Evita duplicação de logs
+if not logger.handlers:
+
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+
+    # Handler de arquivo com rotação
+    file_handler = RotatingFileHandler(
+        filename="app.log",
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=5,
+        encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    # (Opcional) handler de console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 MONGODB_URI = "mongodb://192.168.0.199:27017"
 DATABASE_NAME = "invoice_extractor"
