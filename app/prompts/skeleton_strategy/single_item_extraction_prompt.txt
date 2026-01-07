@@ -42,21 +42,74 @@ Extract EXACTLY ONE JSON object with the following fields:
 
 - quantidade:
   - Extract the quantity (Qtd.).
-  - Must be numeric.
-  - Decimal allowed.
+  - Quantities MAY use comma (,) as decimal separator.
+  - Quantities MAY contain up to FOUR decimal places (e.g. 1,0000).
+  - Interpret "1,0000" as quantity = 1.0 (NOT 10000).
+  - Convert the quantity to a numeric value using dot (.) as decimal separator.
 
 - valor_unitario:
   - Prefer "Valor unitário de comercialização".
-  - If unavailable, extract the clearest unit price.
-  - Use dot (.) as decimal separator.
+  - Monetary values MAY use comma (,) as decimal separator.
+  - Convert monetary values to numbers using dot (.) as decimal separator.
 
 - valor_total:
-  - Prefer "Valor(R$)" or total product value (vProd).
-  - Use dot (.) as decimal separator.
+  - Prefer the value in the "Valor(R$)" column.
+  - IMPORTANT: In NFC-e item tables, the product summary line often follows this format:
+
+    <item_number> <product_name> <quantity> Un <Valor(R$)>
+
+    Example:
+    6 BAT RUF 33G CEB SALS 1,0000 Un 4,55
+
+  - In this format, the LAST numeric value in the line
+    represents the TOTAL VALUE of the product (Valor(R$)).
+  - Extract this LAST value as valor_total.
+  - Convert to number using dot (.) as decimal separator.
 
 - desconto:
-  - Extract discount value if present.
-  - If not present, return 0.
+  - Discounts are usually NOT on the product summary line.
+
+  - PRIMARY RULE (preferred case):
+    - Discounts usually appear in a separate section with the header:
+
+      "Valor do Desconto"
+
+    - The discount value corresponds to the numeric value that appears
+      IMMEDIATELY BELOW the text "Valor do Desconto".
+
+    Example:
+    Valor do Desconto Valor Total do Frete Valor do Seguro
+    1,12
+
+  - SECONDARY RULE (OCR failure fallback):
+    - In some cases, the OCR may FAIL to capture the header
+      "Valor do Desconto".
+
+    - In these cases, the discount may appear as a SINGLE numeric value
+      on its own line, without any label.
+
+    - When this happens:
+      - Locate the product description line (the first line of the block).
+      - Count the subsequent lines.
+      - The discount value will safely appear as the numeric value
+        located on the FIFTH line AFTER the product description line.
+
+    Example (header missing):
+    46 MAC N SABOR 74G COST 20,0000 PC 35,00
+    Código do Produto Código NCM
+    73702 19023000
+    Código EX da TIPI CFOP Outras Despesas Acessórias
+    5405
+    2.00
+    Indicador de Composição do Valor Total da NF-e
+
+    - In this example, "2.00" is the desconto.
+
+  - Apply the PRIMARY RULE whenever possible.
+  - Only apply the SECONDARY RULE if the "Valor do Desconto" header
+    is completely absent from the block.
+  - Convert the extracted value to a number using dot (.) as decimal separator.
+  - If no discount value can be confidently identified, return 0.
 
 - ean:
   - Prefer "Código EAN Comercial".

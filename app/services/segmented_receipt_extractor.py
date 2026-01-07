@@ -513,7 +513,8 @@ def extract_receipt_segmented(
     skeleton = extract_skeleton_by_cofins(text)
 
     #items = extract_items_paginated(text, skeleton, llm_client)
-    items = extract_items_paginated_with_deterministic_skeleton(text, skeleton, llm_client)
+    #items = extract_items_paginated_with_deterministic_skeleton(text, skeleton, llm_client)
+    items = extract_items_single_loop_with_deterministic_skeleton(text, skeleton, llm_client)
 
     result = consolidate_result(global_data, items)
 
@@ -610,6 +611,124 @@ def extract_skeleton_by_cofins(text: str) -> dict:
     )
 
     return data
+
+def extract_items_single_loop_with_deterministic_skeleton(
+    text: str,
+    skeleton: dict,
+    llm_client: LLMClient
+) -> List[dict]:
+    """
+    Extração de itens com 1 chamada ao LLM por item,
+    usando segmentação determinística por COFINS
+    e prompt single-item.
+    """
+
+    skeleton_items = skeleton.get("items", [])
+    total_items = len(skeleton_items)
+
+    if total_items == 0:
+        logger.warning("[SKELETON] Phase 3: No items in skeleton, returning empty list")
+        return []
+
+    logger.warning(
+        "[SKELETON] Phase 3: Starting SINGLE-ITEM extraction (%d items)",
+        total_items,
+    )
+
+    # Normalização defensiva
+    text = text.encode("utf-8", errors="replace").decode("utf-8")
+
+    cofins_matches = list(re.finditer(r"cofins", text, re.IGNORECASE))
+
+    if len(cofins_matches) < total_items:
+        raise SegmentedExtractionError(
+            f"COFINS count ({len(cofins_matches)}) smaller than skeleton items ({total_items})"
+        )
+
+    prompt_template = load_prompt_template(
+        "skeleton_strategy/single_item_extraction_prompt.txt"
+    )
+
+    all_items: List[dict] = []
+    cursor = 0
+
+    for idx in range(total_items):
+        match = cofins_matches[idx]
+        end_idx = match.end()
+
+        item_text = text[cursor:end_idx].strip()
+        cursor = end_idx
+
+        if not item_text:
+            raise SegmentedExtractionError(
+                f"Empty item block extracted at index {idx + 1}"
+            )
+
+        prompt = prompt_template.replace("{text}", item_text)
+        system_prompt = (
+            "You are a receipt item extraction system. "
+            "Return only valid JSON."
+        )
+
+        logger.warning(
+            "[SKELETON] Phase 3: Extracting item %d/%d (single-call mode)",
+            idx + 1,
+            total_items,
+        )
+
+        try:
+            content = llm_client.chat(system_prompt, prompt)
+            logger.debug(
+                "[SKELETON] Phase 3: LLM response for item %d:\n%s",
+                idx + 1,
+                content,
+            )
+        except LLMError as e:
+            raise SegmentedExtractionError(
+                f"Item {idx + 1} extraction failed: {str(e)}"
+            )
+
+        try:
+            item = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise SegmentedExtractionError(
+                f"Invalid JSON for item {idx + 1}: {str(e)}"
+            )
+
+        if not isinstance(item, dict):
+            raise SegmentedExtractionError(
+                f"Item {idx + 1} is not a JSON object"
+            )
+
+        REQUIRED_FIELDS = {
+            "item",
+            "quantidade",
+            "valor_unitario",
+            "valor_total",
+            "desconto",
+            "ean",
+        }
+
+        missing = REQUIRED_FIELDS - item.keys()
+        if missing:
+            raise SegmentedExtractionError(
+                f"Item {idx + 1} missing required fields: {missing}"
+            )
+
+        all_items.append(item)
+
+        logger.warning(
+            "[SKELETON] Phase 3: Item %d extracted successfully",
+            idx + 1,
+        )
+
+    logger.warning(
+        "[SKELETON] Phase 3 completed: Extracted %d items (single-item strategy)",
+        len(all_items),
+    )
+
+    return all_items
+
 
 def extract_items_paginated_with_deterministic_skeleton(
     text: str, skeleton: dict, llm_client: LLMClient

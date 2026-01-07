@@ -27,9 +27,9 @@ The text usually contains:
 
 1) GENERAL INFORMATION BLOCK:
    - SEFAZ / government headers
-   - NFC-e metadata
+   - NFC-e / CF-e metadata
    - Emitente (issuer) information
-   - Chave de Acesso (44-digit access key, sometimes spaced)
+   - Chave de Acesso (44-digit access key, sometimes spaced or formatted)
    - Data de Emissão
    - CNPJ, address, store name
 
@@ -47,19 +47,52 @@ The text usually contains:
    - "Valor Total da NFe"
 
 --------------------------------------------------
+CRITICAL EMITENTE (ISSUER) BLOCK HEURISTIC
+--------------------------------------------------
+
+Brazilian NFC-e / CF-e documents commonly present issuer data
+inside a structured "Emitente" block, typically formatted as:
+
+Emitente
+CNPJ Nome /Razão Social Inscrição Estadual UF
+<cnpj> <company_name> <state_registration> <UF>
+Destinatário
+
+PRIORITY EXTRACTION RULES:
+
+1. You MUST actively search for the "Emitente" section.
+2. Inside this section:
+   - Locate the line that contains a valid CNPJ.
+   - The company name (market_name) is the text that appears
+     IMMEDIATELY AFTER the CNPJ on the SAME LINE.
+3. The extracted company name:
+   - May be uppercase or mixed case
+   - May include legal suffixes such as "LTDA", "S/A", "ME", "EPP"
+   - MUST NOT include the CNPJ itself
+   - MUST NOT include state registration numbers
+   - MUST NOT include UF codes
+4. If this Emitente block is clearly identified:
+   - ALWAYS use this extraction for BOTH:
+     - market_name
+     - cnpj
+   - This rule OVERRIDES any other possible store name found elsewhere.
+
+--------------------------------------------------
 RECEIPT-LEVEL FIELD EXTRACTION RULES
 --------------------------------------------------
 
 - market_name:
-  - Prefer "Nome Fantasia" when present
-  - Otherwise, use the first clear store name found
-  - Do NOT include CNPJ, address, phone numbers, or government headers
-  - If not confidently identifiable, return null
+  - PRIMARY RULE:
+    - Extract from the Emitente block using the rules above.
+  - SECONDARY RULE (fallback only):
+    - Prefer "Nome Fantasia" when explicitly labeled.
+    - Otherwise, use the first clear store name found near the top.
+  - If not confidently identifiable, return null.
 
 - cnpj:
   - Extract the CNPJ of the EMITENTE (issuer)
+  - Prefer the CNPJ found in the Emitente block
   - Remove punctuation and return digits only
-  - Example: "15.598.527/0001-37" → "15598527000137"
 
 - address:
   - Extract the issuer address when present
@@ -67,176 +100,150 @@ RECEIPT-LEVEL FIELD EXTRACTION RULES
   - If fragmented across lines, concatenate logically
   - If not clearly present, return null
 
-- access_key:
-  - Extract the NFC-e "Chave de Acesso"
-  - It is a numeric key with EXACTLY 44 digits
-  - It may appear spaced or broken across lines
-  - Remove all spaces and non-numeric characters
-
 --------------------------------------------------
-ACCESS KEY VALIDATION (CRITICAL)
+ACCESS KEY EXTRACTION & VALIDATION (CRITICAL – UPDATED)
 --------------------------------------------------
 
-- The NFC-e Chave de Acesso MUST contain EXACTLY 44 numeric digits
-- After normalization (digits only):
-  - If the value has MORE than 44 digits, it is INVALID
-  - If it has LESS than 44 digits, it is INVALID
-- The NFC-e model code ("65") MUST NOT be appended or duplicated
-- You MUST:
-  1. Extract candidate numeric sequences related to the access key
-  2. Normalize them (digits only)
-  3. STRICTLY validate that length == 44
-- If no sequence with EXACTLY 44 digits exists:
-  - Return "access_key": null
+The NFC-e "Chave de Acesso" MUST contain EXACTLY 44 numeric digits
+AFTER REMOVING all non-numeric characters.
+
+GENERAL RULES:
+
+- The access key usually appears in the FIRST LINES of the document
+- It is commonly located near headers such as:
+  - "Chave de Acesso"
+  - "Dados da NF-e"
+  - "Dados Gerais"
+
+YOU MUST APPLY THE FOLLOWING HEURISTICS:
+
+--------------------------------------------------
+FORMAT 1 – HYPHENATED / FORMATTED KEY
+--------------------------------------------------
+
+The access key MAY appear fully formatted with separators,
+for example:
+
+28-2601-08.715.757/0021-17-55-004-004.173.112-171.371.508-3
+
+Extraction rules for this format:
+
+1. Capture the FULL string associated with "Chave de Acesso"
+2. Remove ALL non-numeric characters (hyphens, dots, slashes, spaces)
+3. After normalization:
+   - If the resulting string has EXACTLY 44 digits → VALID
+   - Otherwise → INVALID
+
+--------------------------------------------------
+FORMAT 2 – BLOCKED NUMERIC GROUPS (4 DIGITS)
+--------------------------------------------------
+
+The access key MAY appear split into multiple numeric blocks,
+typically 4 digits per block, directly BELOW the label "Chave de Acesso",
+for example:
+
+2825 1206 0572 2305 1833 6501 6000 0976 8411 6133 9733 65
+
+Extraction rules for this format:
+
+1. Identify the label "Chave de Acesso"
+2. Collect ALL numeric groups that appear directly BELOW this label
+   and BEFORE unrelated text begins
+3. Concatenate ALL collected numeric groups IN ORDER
+4. After concatenation:
+   - Remove any non-numeric characters
+   - If the resulting string has EXACTLY 44 digits → VALID
+   - Otherwise → INVALID
+
+--------------------------------------------------
+STRICT VALIDATION RULES (MANDATORY)
+--------------------------------------------------
+
+- The access key MUST have EXACTLY 44 digits after normalization
+- If the normalized value has MORE than 44 digits → INVALID
+- If it has LESS than 44 digits → INVALID
+- The NFC-e model code ("65") MUST NOT be appended, duplicated,
+  or inferred outside what is explicitly present
 - NEVER:
-  - Append extra digits
-  - Truncate digits to force 44
-  - Guess or infer missing digits
-- Any value with 45, 46, or more digits is INVALID
+  - Pad digits
+  - Truncate digits
+  - Guess missing digits
+
+If NO valid 44-digit sequence can be confidently extracted:
+- Return "access_key": null
 
 --------------------------------------------------
-- issue_date:
+ISSUE DATE EXTRACTION
 --------------------------------------------------
 
-- Extract the fiscal "Data de Emissão" of the NFC-e
-- This is the official issuance date of the document
-- It is commonly labeled as "Data de Emissão"
-- When multiple dates exist, ALWAYS prefer the one explicitly labeled "Data de Emissão"
-- Do NOT confuse issue_date with authorization, protocol, processing, or printing dates
-- Ignore time information if present
+- Extract the fiscal "Data de Emissão"
+- Prefer the date explicitly labeled as "Data de Emissão"
+- Ignore authorization, protocol, processing, or printing dates
+- Ignore time information
 - Return the date in ISO format: YYYY-MM-DD
-- If the issue date cannot be confidently identified, return null
 
 --------------------------------------------------
-ITEM EXTRACTION RULES
+ITEM EXTRACTION RULES (HIGH PRECISION)
 --------------------------------------------------
 
 IMPORTANT CONTEXT:
-- NFC-e product layouts do NOT reliably contain a three-digit item number
-- Therefore, item_id MUST be null unless a clear identifier exists
+- NFC-e product layouts do NOT reliably contain a sequential item number
+- item_id MUST be null unless clearly present
 
 --------------------------------------------------
-ITEM BOUNDARY HEURISTIC (CRITICAL FOR COMPLETENESS)
+ITEM BOUNDARY HEURISTIC (CRITICAL)
 --------------------------------------------------
 
-- In NFC-e receipts, EACH product item is followed by tax detail blocks
-- The COFINS tax block represents the FINAL section of a product item
+- EACH product item ENDS only when its COFINS block is encountered
+- A new item may ONLY start AFTER the previous COFINS block ends
+- COFINS is used ONLY for boundary detection
 
-You MUST apply the following rule:
+--------------------------------------------------
+FOR EACH PRODUCT BLOCK, EXTRACT EXACTLY ONE ITEM
+--------------------------------------------------
 
-- A product item MUST be considered COMPLETE only after its COFINS block has been encountered
-- The appearance of a COFINS section indicates the END of the current item
-- A NEW item may only begin AFTER the previous item's COFINS block has ended
-
-This rule is used ONLY to:
-- Correctly detect item boundaries
-- Prevent items from being merged or skipped
-- Ensure ALL items in long receipts are extracted
-
-You MUST NOT:
-- Use COFINS to infer values
-- Extract COFINS itself as data
-- Skip items that contain COFINS
+- item_id: null unless clearly present
+- item: description EXACTLY as written
+- quantidade:
+  - May use comma as decimal separator
+  - Up to 4 decimal places
+  - Convert to number using dot
+- valor_unitario:
+  - Prefer "Valor unitário de comercialização"
+  - Convert to number
+- valor_total:
+  - LAST numeric value in product summary line
+  - Convert to number
+- desconto:
+  - Prefer "Valor do Desconto" section
+  - OCR fallback: fifth line after description
+  - If absent, return 0
+- ean:
+  - Prefer "Código EAN Comercial"
+  - Otherwise "Código EAN Tributável"
+  - Else null
 
 --------------------------------------------------
 ITEM TOTAL CONSISTENCY VALIDATION (CRITICAL)
 --------------------------------------------------
 
-You MUST perform a completeness validation using the document total.
+- Sum valor_total of ALL extracted items
+- Compare against "Valor Total da NFe"
 
-- Locate the field "Valor Total da NFe"
-  - This value is found in the ICMS summary block AFTER the full list of items
-  - It represents the official total value of the receipt
+If SIGNIFICANTLY LOWER:
+- Re-scan input
+- Extract missing items
+- Append them
 
-- Independently compute:
-  - The sum of "valor_total" across ALL extracted items
-
-VALIDATION RULES:
-
-- If the sum of extracted item totals is SIGNIFICANTLY LOWER than "Valor Total da NFe":
-  - This indicates that one or more product items were NOT extracted
-  - You MUST re-scan the input text and extract the missing product blocks
-  - Missing items MUST be added as additional entries in the "items" array
-
-- This validation is used ONLY to detect missing items
-
-You MUST NOT:
-- Modify quantities, prices, or totals to force a match
-- Create synthetic or artificial items
-- Remove any extracted item
-- Adjust values to reconcile differences
-
-- Minor rounding differences are acceptable
-- Large discrepancies indicate missing items and MUST trigger re-extraction
-
-FAIL-SAFE RULE:
-
-- If, after re-scanning, the totals still do not reasonably match:
-  - Return ALL extracted items anyway
-  - NEVER discard items
-  - NEVER fabricate data
-
---------------------------------------------------
-For EACH product block, extract exactly ONE item:
---------------------------------------------------
-
-- item_id:
-  - Set to null unless a clear item identifier exists
-
-- item:
-  - Extract the product description exactly as shown
-  - Preserve original casing
-  - Do NOT normalize or correct spelling
-
-- quantidade:
-  - Extract the quantity (Qtd.)
-  - Must be numeric (decimal allowed)
-
-- valor_unitario:
-  - Prefer "Valor unitário de comercialização"
-  - If unavailable, infer from total ÷ quantity ONLY if clearly consistent
-  - Use dot (.) as decimal separator
-
-- valor_total:
-  - Prefer "Valor(R$)" or product total value (vProd)
-  - Convert comma to dot
-
-- desconto:
-  - Extract "Valor do Desconto" if present
-  - If not present, return 0
-
-- ean:
-  - Prefer "Código EAN Comercial"
-  - If not present, try "Código EAN Tributável"
-  - If neither exists, return null
-
---------------------------------------------------
-NUMERIC & FORMAT RULES
---------------------------------------------------
-
-- All monetary values must be numbers
-- Use dot (.) as decimal separator
-- Do NOT return strings for numeric fields
-- Quantidade must be numeric
-
---------------------------------------------------
-EXCLUSIONS (DO NOT EXTRACT)
---------------------------------------------------
-
-- Taxes (ICMS, PIS, COFINS)
-- Payment methods
-- Totals or subtotals
-- Change, cashback, or balances
-- Authorization protocols
-- Any non-product informational text
+NEVER remove or modify items.
 
 --------------------------------------------------
 DO NOT HALLUCINATE
 --------------------------------------------------
 
-- If a field cannot be confidently extracted, return null (or 0 for desconto)
-- Never invent missing data
-- Never merge or reconcile items
+- If a field cannot be confidently extracted, return null
+- NEVER invent data
+- NEVER merge items
 
 --------------------------------------------------
 OUTPUT FORMAT
