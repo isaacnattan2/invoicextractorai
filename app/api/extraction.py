@@ -37,10 +37,24 @@ def normalize_start_extraction(value: Union[str, bool, int, None]) -> bool:
     return False
 
 
+VALID_PROVIDERS = ["llama3.1:8b", "gpt-4o-mini"]
+
+
+def normalize_provider(value: Optional[str]) -> str:
+    if value is None:
+        return "offline"
+    if value == "gpt-4o-mini":
+        return "online"
+    if value == "llama3.1:8b":
+        return "offline"
+    return "offline"
+
+
 @router.post("/api/extraction/import")
 async def import_extraction(
     request: ExtractionImportRequest,
-    start_extraction: Union[str, bool, int] = Query(...)
+    start_extraction: Union[str, bool, int] = Query(...),
+    provider: Optional[str] = Query(default=None, description="LLM provider: llama3.1:8b or gpt-4o-mini")
 ):
     if not request.source:
         raise HTTPException(status_code=400, detail="source is required")
@@ -84,9 +98,10 @@ async def import_extraction(
 
     extraction_triggered = False
     if should_start_extraction:
+        normalized_provider = normalize_provider(provider)
         registry = get_registry()
         job = registry.create_job_from_text(
-            provider="offline",
+            provider=normalized_provider,
             raw_text=request.ocr_extraction
         )
         start_receipt_processing(job.id)
