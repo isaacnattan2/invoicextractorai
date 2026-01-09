@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.api.upload import router as upload_router
 from app.api.invoices import router as invoices_router
+from app.api.extraction import router as extraction_router
 from app.services.job_registry import get_registry
 
 app = FastAPI(title="Mini Mercado Sinai II - Financeiro - Web")
@@ -15,6 +16,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 app.include_router(upload_router)
 app.include_router(invoices_router)
+app.include_router(extraction_router)
 
 
 @app.get("/", response_class=HTMLResponse)
