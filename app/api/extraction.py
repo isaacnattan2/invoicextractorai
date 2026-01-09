@@ -42,12 +42,12 @@ VALID_PROVIDERS = ["llama3.1:8b", "gpt-4o-mini"]
 
 def normalize_provider(value: Optional[str]) -> str:
     if value is None:
-        return "offline"
+        return "online"
     if value == "gpt-4o-mini":
         return "online"
     if value == "llama3.1:8b":
         return "offline"
-    return "offline"
+    return "online"
 
 
 @router.post("/api/extraction/import")
