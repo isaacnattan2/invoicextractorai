@@ -54,7 +54,8 @@ def normalize_provider(value: Optional[str]) -> str:
 async def import_extraction(
     request: ExtractionImportRequest,
     start_extraction: Union[str, bool, int] = Query(...),
-    provider: Optional[str] = Query(default=None, description="LLM provider: llama3.1:8b or gpt-4o-mini")
+    provider: Optional[str] = Query(default=None, description="LLM provider: llama3.1:8b or gpt-4o-mini"),
+    enable_segmented_extraction: bool = Query(default=False, description="Enable segmented extraction")
 ):
     if not request.source:
         raise HTTPException(status_code=400, detail="source is required")
@@ -102,7 +103,8 @@ async def import_extraction(
         registry = get_registry()
         job = registry.create_job_from_text(
             provider=normalized_provider,
-            raw_text=request.ocr_extraction
+            raw_text=request.ocr_extraction,
+            enable_segmented_extraction=enable_segmented_extraction
         )
         start_receipt_processing(job.id)
         extraction_triggered = True
